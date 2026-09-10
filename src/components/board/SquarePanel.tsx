@@ -35,6 +35,7 @@ export function SquarePanel({
       return;
     }
     let cancelled = false;
+    setData(null);
     setError(null);
     fetch(`/api/squares/${squareId}`)
       .then(async (r) => {
