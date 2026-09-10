@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SquareStatus {
+  platform
+  owned
+  listed
+}
+
+enum PriceLabel {
+  fair
+  balanced
+  unfair
+}
+
+model User {
+  id                         String   @id @default(cuid())
+  email                      String   @unique
+  passwordHash               String
+  createdAt                  DateTime @default(now())
+  stripeCustomerId           String?
+  stripeConnectAccountId     String?
+  connectOnboardingComplete  Boolean  @default(false)
+  squares                    Square[] @relation("SquareOwner")
+}
+
+model Square {
+  id             String       @id @default(cuid())
+  x              Int
+  y              Int
+  status         SquareStatus @default(platform)
+  ownerId        String?
+  owner          User?        @relation("SquareOwner", fields: [ownerId], references: [id])
+  imageUrl       String?
+  linkUrl        String?
+  listPriceCents Int?
+  priceQuote     PriceQuote?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([x, y])
+  @@index([status])
+}
+
+model PriceQuote {
+  id                  String     @id @default(cuid())
+  squareId            String     @unique
+  square              Square     @relation(fields: [squareId], references: [id], onDelete: Cascade)
+  suggestedPriceCents Int
+  label               PriceLabel
+  reason              String
+  computedAt          DateTime   @default(now())
+}
