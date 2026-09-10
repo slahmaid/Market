@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { GRID_SIZE } from "@/lib/pricing/constants";
+import { nextBoardCoordinate } from "./boardNavigation";
 
 export type BoardSquare = {
   id: string;
@@ -19,6 +20,7 @@ type Props = {
   offsetY: number;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onPan: (deltaX: number, deltaY: number) => void;
   onViewport: (w: number, h: number) => void;
 };
 
@@ -30,10 +32,18 @@ export function BoardCanvas({
   offsetY,
   selectedId,
   onSelect,
+  onPan,
   onViewport,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const indexRef = useRef<Map<string, BoardSquare>>(new Map());
+  const dragRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
 
   useEffect(() => {
     const map = new Map<string, BoardSquare>();
@@ -100,6 +110,10 @@ export function BoardCanvas({
   }, []);
 
   function handleClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -114,13 +128,64 @@ export function BoardCanvas({
     if (s) onSelect(s.id);
   }
 
+  function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      moved: false,
+    };
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const deltaX = e.clientX - drag.x;
+    const deltaY = e.clientY - drag.y;
+    if (deltaX === 0 && deltaY === 0) return;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    drag.moved = true;
+    onPan(deltaX, deltaY);
+  }
+
+  function finishPointer(e: React.PointerEvent<HTMLCanvasElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    suppressClickRef.current = drag.moved;
+    dragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLCanvasElement>) {
+    const selected = squares.find((square) => square.id === selectedId);
+    const next = nextBoardCoordinate(
+      selected ? { x: selected.x, y: selected.y } : null,
+      e.key,
+    );
+    if (!next) return;
+    e.preventDefault();
+    const square = indexRef.current.get(`${next.x},${next.y}`);
+    if (square) onSelect(square.id);
+  }
+
   return (
     <canvas
       ref={canvasRef}
-      className="block w-full h-full touch-none"
+      className="block h-full w-full cursor-grab touch-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600 active:cursor-grabbing"
       onClick={handleClick}
-      role="img"
-      aria-label="Square market board"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishPointer}
+      onPointerCancel={finishPointer}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="application"
+      aria-label="Square market board. Use arrow keys to move the selection."
     />
   );
 }

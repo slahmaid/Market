@@ -12,7 +12,7 @@ export default function HomePage() {
   const [squares, setSquares] = useState<BoardSquare[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState({ w: 0, h: 0 });
-  const { scale, offsetX, offsetY, fitToView, zoomIn, zoomOut } =
+  const { scale, offsetX, offsetY, fitToView, zoomIn, zoomOut, panBy } =
     useBoardCamera(CELL);
   const hasFitted = useRef(false);
 
@@ -43,6 +43,7 @@ export default function HomePage() {
         offsetY={offsetY}
         selectedId={selectedId}
         onSelect={setSelectedId}
+        onPan={panBy}
         onViewport={onViewport}
       />
       <BoardChrome
