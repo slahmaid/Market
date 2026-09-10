@@ -13,22 +13,6 @@ export async function GET(_req: Request, { params }: Params) {
 
   const quote = buildPlatformQuote({ x: square.x, y: square.y });
 
-  await prisma.priceQuote.upsert({
-    where: { squareId: square.id },
-    create: {
-      squareId: square.id,
-      suggestedPriceCents: quote.suggestedPriceCents,
-      label: quote.label,
-      reason: quote.reason,
-    },
-    update: {
-      suggestedPriceCents: quote.suggestedPriceCents,
-      label: quote.label,
-      reason: quote.reason,
-      computedAt: new Date(),
-    },
-  });
-
   return NextResponse.json({
     square: {
       id: square.id,

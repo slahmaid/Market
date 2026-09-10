@@ -15,8 +15,10 @@ describe("baseLocationPriceCents", () => {
     expect(p).toBeLessThanOrEqual(800);
   });
 
-  it("prices edge mid-side cheaper than center", () => {
-    expect(baseLocationPriceCents(0, 25)).toBeLessThan(baseLocationPriceCents(25, 25));
+  it("prices an edge midpoint near $5", () => {
+    const p = baseLocationPriceCents(0, 25);
+    expect(p).toBeGreaterThanOrEqual(500);
+    expect(p).toBeLessThanOrEqual(800);
   });
 
   it("returns integer cents", () => {

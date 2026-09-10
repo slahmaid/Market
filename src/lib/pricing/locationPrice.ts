@@ -5,21 +5,16 @@ import {
   GRID_SIZE,
 } from "./constants";
 
-/** Max distance from center to a corner in grid units. */
-function maxCenterDistance(): number {
-  return Math.hypot(CENTER - 0, CENTER - 0);
-}
-
 /**
  * Smooth falloff: center ≈ $100, edge/corner ≈ $5.
- * Uses normalized distance from (24.5, 24.5) with ease-out curve.
+ * Uses normalized Chebyshev distance from (24.5, 24.5).
  */
 export function baseLocationPriceCents(x: number, y: number): number {
   if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) {
     throw new Error(`coords out of range: ${x},${y}`);
   }
-  const d = Math.hypot(x - CENTER, y - CENTER);
-  const t = Math.min(1, Math.max(0, d / maxCenterDistance()));
+  const d = Math.max(Math.abs(x - CENTER), Math.abs(y - CENTER));
+  const t = Math.min(1, Math.max(0, d / CENTER));
   // ease: keep center high longer, drop toward edges
   const eased = t * t;
   const price =
