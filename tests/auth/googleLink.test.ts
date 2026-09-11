@@ -16,7 +16,20 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { ensureGoogleUser } from "@/lib/auth-google";
+import {
+  ensureGoogleUser,
+  isGoogleEmailVerified,
+} from "@/lib/auth-google";
+
+describe("isGoogleEmailVerified", () => {
+  it("accepts only email_verified === true (fail-closed)", () => {
+    expect(isGoogleEmailVerified({ email_verified: true })).toBe(true);
+    expect(isGoogleEmailVerified({ email_verified: false })).toBe(false);
+    expect(isGoogleEmailVerified({})).toBe(false);
+    expect(isGoogleEmailVerified(undefined)).toBe(false);
+    expect(isGoogleEmailVerified(null)).toBe(false);
+  });
+});
 
 describe("ensureGoogleUser", () => {
   beforeEach(() => {

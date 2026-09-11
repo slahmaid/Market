@@ -3,7 +3,10 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { z } from "zod";
 import { authorizeCredentials } from "@/lib/auth-credentials";
-import { ensureGoogleUser } from "@/lib/auth-google";
+import {
+  ensureGoogleUser,
+  isGoogleEmailVerified,
+} from "@/lib/auth-google";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -15,7 +18,7 @@ const googleConfigured =
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  pages: { signIn: "/login", error: "/login" },
   providers: [
     ...(googleConfigured
       ? [
@@ -44,10 +47,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === "google") {
         const email = user.email ?? profile?.email;
         if (!email || !account.providerAccountId) return false;
-        const verified = (
-          profile as { email_verified?: boolean } | undefined
-        )?.email_verified;
-        if (verified === false) return false;
+        if (
+          !isGoogleEmailVerified(
+            profile as { email_verified?: boolean } | undefined,
+          )
+        ) {
+          return false;
+        }
         const ensured = await ensureGoogleUser({
           email,
           providerAccountId: account.providerAccountId,
@@ -56,7 +62,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    jwt: async ({ token, user }) => {
+    jwt: async ({ token, user, account, profile }) => {
+      if (account?.provider === "google") {
+        const email = user?.email ?? profile?.email ?? token.email;
+        const providerAccountId = account.providerAccountId;
+        if (email && providerAccountId) {
+          const ensured = await ensureGoogleUser({
+            email: String(email),
+            providerAccountId,
+          });
+          token.sub = ensured.id;
+          return token;
+        }
+      }
       if (user?.id) token.sub = user.id;
       return token;
     },

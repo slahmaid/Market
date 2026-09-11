@@ -1,61 +1,35 @@
-# Task 6 Report — Buy success/cancel pages + panel Buy button
+﻿# Phase 5a Acceptance (Task 6)
 
-**Status:** COMPLETE (manual Stripe E2E blocked)  
-**Branch:** `feat/phase-1-local`  
-**Commit:** (see git log after commit) — `feat: wire primary Buy button to Stripe Checkout`  
-**Author:** Cam \<slahmaid@gmail.com\> (via `GIT_AUTHOR_*` / `GIT_COMMITTER_*` only)
+Date: 2026-09-11
+Branch: feat/phase-5a-google-auth
+Range: bc334f5..a462396
 
----
+## Checklist
 
-## What was implemented
+1. npm test — PASS (see run)
+2. tsc --noEmit — PASS
+3. Migration google_auth_accounts — applied in Task 1
+4. Credentials password users — CODE PASS
+5. Null-password credentials reject — PASS (unit)
+6. ensureGoogleUser create+link — PASS (unit)
+7. Google button on login/register — CODE PASS
+8. Live Google E2E — BLOCKED (no AUTH_GOOGLE_* in env)
+9. No Stripe code changes in auth slice — PASS
 
-### Pages
-- `src/app/buy/success/page.tsx` — light-theme confirmation; ← Board + Back to board links
-- `src/app/buy/cancel/page.tsx` — light-theme cancel message; same navigation pattern
+## Follow-up fix — Phase 5a final review Important items
 
-### SquarePanel Buy wiring
-- Replaced disabled “Buying comes in Phase 2” CTA
-- Auth via existing `useSession()` (`session?.user`)
-- Logged-in + `status === "platform"`: **Buy** → `POST /api/checkout/primary` → `window.location.assign(url)`
-- Loading: button disabled, label “Redirecting…”
-- Errors shown under the button (`role="alert"`)
-- Logged-out + platform: **Log in to buy** → `/login`
-- Non-platform squares: no Buy CTA (customize UI is Tasks 7–9)
-- Mobile bottom sheet / desktop slide-over layout preserved
+Date: 2026-09-11
+Branch: feat/phase-5a-google-auth
 
-### Helper (tested)
-- `src/lib/checkout/startPrimaryCheckout.ts` — shared fetch + error/`url` parsing
-- `tests/checkout/startPrimaryCheckout.test.ts` — success, API error, missing url
+### Important fixes
 
----
+1. **email_verified fail-closed** — `isGoogleEmailVerified` requires `=== true`; missing/false denied in `signIn`.
+2. **JWT authoritative Google user id** — `jwt` callback calls `ensureGoogleUser` when `account.provider === "google"` and sets `token.sub` to DB id.
+3. **Google button gated** — login/register server pages pass `googleEnabled` from `AUTH_GOOGLE_*`; UI + helper copy hidden when unset. Documented `NEXT_PUBLIC_AUTH_GOOGLE_ENABLED` in `.env.example`.
+4. **OAuth errors** — `pages.error: "/login"`; login reads `?error=` and shows a short friendly message.
+5. **Google-only hint** — credentials error stays generic; login helper “Used Google before? Continue with Google.” when Google enabled.
 
-## Tests / verification
+### Verification
 
-### Automated
-- `npm test -- tests/checkout/startPrimaryCheckout.test.ts` — 3 passed
-- `npm test` — 12 files, 41 tests passed
-- `npx tsc --noEmit` — passed
-
-### Manual E2E (Step 3 — Stripe test card `4242…`)
-
-**BLOCKED_MANUAL**
-
-Local `.env` has no Stripe keys (`STRIPE_SECRET_KEY`, publishable key, webhook secret). Checkout API returns `503 Stripe is not configured` without inventing keys.
-
-**Controller note:** Add Stripe test keys from `.env.example` to `.env`, ensure real platform squares in Postgres (`PREVIEW_NO_DB` off for buy path), sign in, open a platform square, click **Buy**, pay with `4242 4242 4242 4242`, confirm land on `/buy/success` and owned state after webhook.
-
-UI + return pages still ship without that run.
-
----
-
-## Out of scope (per brief)
-
-- Customize form / image upload (Tasks 7–9)
-- Canvas thumbnails
-
----
-
-## Concerns / follow-ups
-
-1. Full Stripe Checkout E2E still needs local test keys + webhook listener for ownership to appear after success.
-2. Overwrote prior misplaced content in this report path (old file described Auth.js Task 6 from an earlier phase).
+- `npm test` — PASS (75)
+- `npx tsc --noEmit` — PASS

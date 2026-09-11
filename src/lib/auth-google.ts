@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/db";
 
+/** Fail-closed: Google must send email_verified === true. */
+export function isGoogleEmailVerified(
+  profile: { email_verified?: boolean } | null | undefined,
+): boolean {
+  return profile?.email_verified === true;
+}
+
 export async function ensureGoogleUser(input: {
   email: string;
   providerAccountId: string;
