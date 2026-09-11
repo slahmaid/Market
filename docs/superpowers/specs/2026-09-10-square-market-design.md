@@ -39,7 +39,8 @@ Each phase ships usable software.
 | **3a – Listing** | Owner list/unlist + list price + Fair/Balanced/Unfair (no secondary Checkout; Connect later) |
 | **3b – Secondary buy** | Buy from owner, 7% fee, Stripe Connect onboarding |
 | **4 – Dashboard** | My squares, wallet/earnings, recent buyers, market overview |
-| **5 – Later** | Auctions + instant-buy, OAuth, crypto |
+| **5a – Google Auth** | Google sign-in/register + account linking (Stripe still deferred) |
+| **5b – Later** | Auctions + instant-buy, more OAuth, crypto |
 
 ## 4. Architecture
 
