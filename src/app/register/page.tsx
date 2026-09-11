@@ -68,6 +68,24 @@ export default function RegisterPage() {
           </h1>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
+        <button
+          type="button"
+          onClick={() => signIn("google", { callbackUrl: "/" })}
+          className="sm-press w-full min-h-12 rounded-xl border border-neutral-200 bg-white text-sm font-semibold text-neutral-900 active:bg-neutral-50 touch-manipulation"
+        >
+          Continue with Google
+        </button>
+        <p className="text-xs text-neutral-500 text-center">
+          New here? Google creates your account.
+        </p>
+        <div className="relative py-1">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-neutral-200" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-white px-2 text-neutral-500">or</span>
+          </div>
+        </div>
         <input
           className={fieldClass}
           type="email"
