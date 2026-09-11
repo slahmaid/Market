@@ -104,6 +104,18 @@ export default function HomePage() {
       <SquarePanel
         squareId={selectedId}
         onClose={() => setSelectedId(null)}
+        onSquareUpdated={(updated) => {
+          setSquares((prev) =>
+            prev.map((s) => {
+              if (s.id !== updated.id) return s;
+              const base = updated.imageUrl;
+              const imageUrl = base
+                ? `${base}${base.includes("?") ? "&" : "?"}v=${Date.now()}`
+                : null;
+              return { ...s, imageUrl };
+            }),
+          );
+        }}
       />
     </main>
   );

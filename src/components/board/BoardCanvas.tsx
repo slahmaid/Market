@@ -34,6 +34,7 @@ function paintGrid(
   layout: BoardLayout,
   selectedId: string | null,
   index: Map<string, BoardSquare>,
+  images: Map<string, HTMLImageElement>,
 ) {
   const { boardW, boardH, edgesX, edgesY } = layout;
   ctx.clearRect(0, 0, boardW, boardH);
@@ -54,6 +55,14 @@ function paintGrid(
     ctx.lineTo(boardW, y + 0.5);
   }
   ctx.stroke();
+
+  for (const s of index.values()) {
+    if (!s.imageUrl) continue;
+    const img = images.get(s.imageUrl);
+    if (!img || !img.complete || img.naturalWidth === 0) continue;
+    const { px, py, pw, ph } = cellRect(layout, s.x, s.y);
+    ctx.drawImage(img, px, py, pw, ph);
+  }
 
   if (!selectedId) return;
   for (const s of index.values()) {
@@ -80,6 +89,7 @@ export function BoardCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const indexRef = useRef<Map<string, BoardSquare>>(new Map());
   const gridRef = useRef<HTMLCanvasElement | null>(null);
+  const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const viewRef = useRef({ w: 0, h: 0, dpr: 1 });
   const cameraRef = useRef({ scale, offsetX, offsetY });
   const layoutRef = useRef(layout);
@@ -123,7 +133,13 @@ export function BoardCanvas({
     const gctx = grid.getContext("2d");
     if (!gctx) return;
     gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    paintGrid(gctx, layoutRef.current, selectedRef.current, indexRef.current);
+    paintGrid(
+      gctx,
+      layoutRef.current,
+      selectedRef.current,
+      indexRef.current,
+      imageCacheRef.current,
+    );
   };
 
   const blit = () => {
@@ -157,11 +173,52 @@ export function BoardCanvas({
     });
   };
 
-  // Rebuild cached grid when content changes
+  // Load / prune Image objects when square imageUrl map changes
+  useEffect(() => {
+    const wanted = new Set<string>();
+    for (const s of squares) {
+      if (s.imageUrl) wanted.add(s.imageUrl);
+    }
+
+    const cache = imageCacheRef.current;
+    for (const url of [...cache.keys()]) {
+      if (!wanted.has(url)) cache.delete(url);
+    }
+
+    let cancelled = false;
+    for (const url of wanted) {
+      if (cache.has(url)) continue;
+      const img = new Image();
+      img.decoding = "async";
+      img.onload = () => {
+        if (cancelled) return;
+        cache.set(url, img);
+        rebuildGrid();
+        scheduleBlit();
+      };
+      img.onerror = () => {
+        if (cancelled) return;
+        cache.delete(url);
+      };
+      // Placeholder entry so we don't double-load while pending
+      cache.set(url, img);
+      img.src = url;
+    }
+
+    rebuildGrid();
+    scheduleBlit();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuildGrid/scheduleBlit are stable closures over refs
+  }, [squares]);
+
+  // Rebuild cached grid when layout/selection changes
   useEffect(() => {
     rebuildGrid();
     scheduleBlit();
-  }, [squares, layout, selectedId]);
+  }, [layout, selectedId]);
 
   // Camera updates: blit only (cheap)
   useEffect(() => {

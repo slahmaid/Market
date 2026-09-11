@@ -4,9 +4,18 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { startPrimaryCheckout } from "@/lib/checkout/startPrimaryCheckout";
+import { customizeSquare } from "@/lib/customize/customizeSquare";
 
 type Detail = {
-  square: { id: string; x: number; y: number; status: string };
+  square: {
+    id: string;
+    x: number;
+    y: number;
+    status: string;
+    imageUrl: string | null;
+    linkUrl: string | null;
+    ownerId: string | null;
+  };
   quote: {
     askCents: number;
     suggestedPriceCents: number;
@@ -38,15 +47,26 @@ function labelTone(label: string) {
 export function SquarePanel({
   squareId,
   onClose,
+  onSquareUpdated,
 }: {
   squareId: string | null;
   onClose: () => void;
+  onSquareUpdated?: (square: {
+    id: string;
+    imageUrl: string | null;
+    linkUrl: string | null;
+  }) => void;
 }) {
   const { data: session } = useSession();
   const [data, setData] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
   const [buyError, setBuyError] = useState<string | null>(null);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveOk, setSaveOk] = useState(false);
 
   useEffect(() => {
     if (!squareId) {
@@ -58,6 +78,11 @@ export function SquarePanel({
     setError(null);
     setBuyError(null);
     setBuying(false);
+    setLinkUrl("");
+    setImageFile(null);
+    setSaving(false);
+    setSaveError(null);
+    setSaveOk(false);
     fetch(`/api/squares/${squareId}`)
       .then(async (r) => {
         const text = await r.text();
@@ -67,7 +92,10 @@ export function SquarePanel({
         return JSON.parse(text) as Detail;
       })
       .then((j) => {
-        if (!cancelled) setData(j);
+        if (!cancelled) {
+          setData(j);
+          setLinkUrl(j.square.linkUrl ?? "");
+        }
       })
       .catch((e) => {
         if (!cancelled) {
@@ -92,10 +120,69 @@ export function SquarePanel({
     }
   }
 
+  async function onSaveCustomize() {
+    if (!squareId || saving) return;
+    if (!imageFile && linkUrl === (data?.square.linkUrl ?? "")) {
+      setSaveError("Choose an image or change the link");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    setSaveOk(false);
+    try {
+      const payload: { image?: File; linkUrl?: string } = {};
+      if (imageFile) payload.image = imageFile;
+      // Always send link when saving so owner can clear or update it
+      payload.linkUrl = linkUrl;
+      const result = await customizeSquare(squareId, payload);
+      const nextImage =
+        typeof result.square.imageUrl === "string" ||
+        result.square.imageUrl === null
+          ? result.square.imageUrl
+          : (data?.square.imageUrl ?? null);
+      const nextLink =
+        typeof result.square.linkUrl === "string" ||
+        result.square.linkUrl === null
+          ? result.square.linkUrl
+          : null;
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              square: {
+                ...prev.square,
+                imageUrl: nextImage,
+                linkUrl: nextLink,
+              },
+            }
+          : prev,
+      );
+      setLinkUrl(nextLink ?? "");
+      setImageFile(null);
+      setSaveOk(true);
+      onSquareUpdated?.({
+        id: squareId,
+        imageUrl: nextImage,
+        linkUrl: nextLink,
+      });
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Customize failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (!squareId) return null;
 
   const isPlatform = data?.square.status === "platform";
   const loggedIn = Boolean(session?.user);
+  const isOwner =
+    Boolean(session?.user?.id) &&
+    Boolean(data?.square.ownerId) &&
+    session?.user?.id === data?.square.ownerId;
+  const canCustomize =
+    isOwner &&
+    (data?.square.status === "owned" || data?.square.status === "listed");
 
   return (
     <>
@@ -197,6 +284,86 @@ export function SquarePanel({
                     Log in to buy
                   </Link>
                 ))}
+
+              {canCustomize && (
+                <div className="space-y-3 border-t border-neutral-200 pt-4">
+                  <h3 className="text-sm font-semibold text-neutral-900">
+                    Customize
+                  </h3>
+                  {data.square.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={data.square.imageUrl}
+                      alt="Current square thumbnail"
+                      className="h-16 w-16 rounded-md border border-neutral-200 object-cover"
+                    />
+                  )}
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-neutral-600">
+                      Image (JPEG, PNG, or WebP)
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => {
+                        setImageFile(e.target.files?.[0] ?? null);
+                        setSaveOk(false);
+                        setSaveError(null);
+                      }}
+                      className="block w-full text-sm text-neutral-700 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-neutral-800"
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-neutral-600">
+                      Link (https)
+                    </span>
+                    <input
+                      type="url"
+                      value={linkUrl}
+                      onChange={(e) => {
+                        setLinkUrl(e.target.value);
+                        setSaveOk(false);
+                        setSaveError(null);
+                      }}
+                      placeholder="https://example.com"
+                      className="w-full min-h-11 rounded-xl border border-neutral-200 bg-white px-3 text-sm text-neutral-900 outline-none focus:border-neutral-400"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={onSaveCustomize}
+                    disabled={saving}
+                    className="sm-press w-full min-h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold active:bg-neutral-800 disabled:opacity-60 touch-manipulation"
+                  >
+                    {saving ? "Saving…" : "Save"}
+                  </button>
+                  {data.square.linkUrl && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        window.open(
+                          data.square.linkUrl!,
+                          "_blank",
+                          "noopener,noreferrer",
+                        )
+                      }
+                      className="sm-press w-full min-h-11 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-800 active:bg-neutral-50 touch-manipulation"
+                    >
+                      Open link
+                    </button>
+                  )}
+                  {saveError && (
+                    <p className="text-sm text-red-600" role="alert">
+                      {saveError}
+                    </p>
+                  )}
+                  {saveOk && (
+                    <p className="text-sm text-emerald-700" role="status">
+                      Saved
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
