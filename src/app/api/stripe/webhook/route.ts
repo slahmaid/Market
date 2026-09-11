@@ -13,13 +13,38 @@ function paymentIntentId(
   return typeof paymentIntent === "string" ? paymentIntent : paymentIntent.id;
 }
 
+async function sessionAlreadySettled(sessionId: string): Promise<boolean> {
+  const existing = await prisma.transaction.findUnique({
+    where: { stripeCheckoutSessionId: sessionId },
+  });
+  return existing != null;
+}
+
+/** Best-effort refund; never throws — ownership outcome is already decided. */
 async function refundIfPossible(
   stripe: Stripe,
   session: Stripe.Checkout.Session,
 ): Promise<void> {
   const pi = paymentIntentId(session.payment_intent);
   if (!pi) return;
-  await stripe.refunds.create({ payment_intent: pi });
+
+  // Same-session winner must never be refunded by a racing delivery.
+  if (await sessionAlreadySettled(session.id)) {
+    return;
+  }
+
+  try {
+    await stripe.refunds.create(
+      { payment_intent: pi },
+      { idempotencyKey: `primary-refund:${session.id}` },
+    );
+  } catch (error) {
+    console.error("Stripe refund failed for checkout session", {
+      sessionId: session.id,
+      paymentIntent: pi,
+      error,
+    });
+  }
 }
 
 async function handlePrimaryCheckout(
@@ -28,12 +53,26 @@ async function handlePrimaryCheckout(
 ): Promise<void> {
   const squareId = session.metadata?.squareId;
   const buyerId = session.metadata?.buyerId;
-  if (!squareId || !buyerId) return;
 
-  const existing = await prisma.transaction.findUnique({
-    where: { stripeCheckoutSessionId: session.id },
-  });
-  if (existing) return;
+  if (!squareId || !buyerId) {
+    console.warn("Primary checkout missing squareId/buyerId metadata", {
+      sessionId: session.id,
+    });
+    await refundIfPossible(stripe, session);
+    return;
+  }
+
+  if (await sessionAlreadySettled(session.id)) {
+    return;
+  }
+
+  if (session.amount_total == null) {
+    console.warn("Primary checkout missing amount_total; refunding", {
+      sessionId: session.id,
+    });
+    await refundIfPossible(stripe, session);
+    return;
+  }
 
   const square = await prisma.square.findUnique({ where: { id: squareId } });
   if (!square || square.status !== "platform") {
@@ -44,11 +83,12 @@ async function handlePrimaryCheckout(
   const result = await completePrimaryPurchase({
     squareId,
     buyerId,
-    amountCents: session.amount_total ?? 0,
+    amountCents: session.amount_total,
     stripeCheckoutSessionId: session.id,
   });
 
   if (!result.ok) {
+    // Loser only: another session won. Same-session settle is a no-op inside refund.
     await refundIfPossible(stripe, session);
   }
 }

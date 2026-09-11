@@ -1,14 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 const squareUpdateMany = vi.fn();
 const transactionCreate = vi.fn();
+const transactionFindUnique = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         square: { updateMany: squareUpdateMany },
-        transaction: { create: transactionCreate },
+        transaction: {
+          create: transactionCreate,
+          findUnique: transactionFindUnique,
+        },
       }),
     ),
   },
@@ -40,9 +45,11 @@ describe("completePrimaryPurchase", () => {
   beforeEach(() => {
     squareUpdateMany.mockReset();
     transactionCreate.mockReset();
+    transactionFindUnique.mockReset();
   });
 
   it("assigns ownership and creates primary Transaction when square is platform", async () => {
+    transactionFindUnique.mockResolvedValue(null);
     squareUpdateMany.mockResolvedValue({ count: 1 });
     transactionCreate.mockResolvedValue({ id: "tx1" });
 
@@ -71,7 +78,23 @@ describe("completePrimaryPurchase", () => {
     });
   });
 
+  it("returns ok without mutating when Transaction already exists for session", async () => {
+    transactionFindUnique.mockResolvedValue({ id: "tx_existing" });
+
+    const result = await completePrimaryPurchase({
+      squareId: "sq1",
+      buyerId: "buyer1",
+      amountCents: 500,
+      stripeCheckoutSessionId: "cs_test_idem",
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(squareUpdateMany).not.toHaveBeenCalled();
+    expect(transactionCreate).not.toHaveBeenCalled();
+  });
+
   it("returns not_buyable without creating Transaction when square is not platform", async () => {
+    transactionFindUnique.mockResolvedValue(null);
     squareUpdateMany.mockResolvedValue({ count: 0 });
 
     const result = await completePrimaryPurchase({
@@ -83,5 +106,43 @@ describe("completePrimaryPurchase", () => {
 
     expect(result).toEqual({ ok: false, reason: "not_buyable" });
     expect(transactionCreate).not.toHaveBeenCalled();
+  });
+
+  it("treats already-completed session as success when updateMany loses the race", async () => {
+    transactionFindUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "tx_winner", stripeCheckoutSessionId: "cs_race" });
+    squareUpdateMany.mockResolvedValue({ count: 0 });
+
+    const result = await completePrimaryPurchase({
+      squareId: "sq1",
+      buyerId: "buyer1",
+      amountCents: 500,
+      stripeCheckoutSessionId: "cs_race",
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(transactionCreate).not.toHaveBeenCalled();
+  });
+
+  it("treats P2002 on stripeCheckoutSessionId as success", async () => {
+    transactionFindUnique.mockResolvedValue(null);
+    squareUpdateMany.mockResolvedValue({ count: 1 });
+    transactionCreate.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: ["stripeCheckoutSessionId"] },
+      }),
+    );
+
+    const result = await completePrimaryPurchase({
+      squareId: "sq1",
+      buyerId: "buyer1",
+      amountCents: 500,
+      stripeCheckoutSessionId: "cs_p2002",
+    });
+
+    expect(result).toEqual({ ok: true });
   });
 });
