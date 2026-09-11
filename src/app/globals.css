@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f6f7f9;
   --foreground: #171717;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --motion-fast: 160ms;
+  --motion-panel: 280ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @theme inline {
@@ -12,11 +19,105 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
   margin: 0;
   min-height: 100dvh;
+}
+
+body:has([data-board-shell]) {
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+@keyframes sm-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sm-sheet-up {
+  from {
+    opacity: 0.96;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sm-drawer-in {
+  from {
+    opacity: 0.96;
+    transform: translate3d(16px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sm-chrome-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.sm-scrim {
+  animation: sm-fade-in var(--motion-fast) var(--ease-out) both;
+}
+
+.sm-panel {
+  animation: sm-sheet-up var(--motion-panel) var(--ease-out) both;
+}
+
+@media (min-width: 768px) {
+  .sm-panel {
+    animation: sm-drawer-in var(--motion-panel) var(--ease-out) both;
+  }
+}
+
+.sm-chrome {
+  animation: sm-chrome-in var(--motion-panel) var(--ease-out) both;
+}
+
+.sm-press {
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+
+.sm-press:active {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sm-scrim,
+  .sm-panel,
+  .sm-chrome {
+    animation: none;
+  }
+
+  .sm-press,
+  .sm-press:active {
+    transition: none;
+    transform: none;
+  }
 }

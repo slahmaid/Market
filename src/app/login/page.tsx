@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 
+const fieldClass =
+  "w-full min-h-12 rounded-xl border border-neutral-200 bg-white px-3.5 text-base text-neutral-900 outline-none focus:border-neutral-400";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -31,24 +34,43 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-[#f6f7f9] px-4">
+    <main
+      className="min-h-[100dvh] flex items-center justify-center bg-[#f6f7f9] px-4 py-8"
+      style={{
+        paddingTop: "max(2rem, var(--safe-top))",
+        paddingBottom: "max(2rem, var(--safe-bottom))",
+      }}
+    >
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm space-y-4 bg-white p-6 shadow-sm border border-black/5"
+        className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-sm border border-black/5"
       >
-        <h1 className="text-xl font-semibold text-neutral-900">Log in</h1>
+        <div>
+          <Link
+            href="/"
+            className="text-sm text-neutral-500 active:text-neutral-800"
+          >
+            ← Board
+          </Link>
+          <h1 className="mt-3 text-2xl font-semibold text-neutral-900">
+            Log in
+          </h1>
+        </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <input
-          className="w-full border px-3 py-2"
+          className={fieldClass}
           type="email"
+          autoComplete="email"
+          inputMode="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
         />
         <input
-          className="w-full border px-3 py-2"
+          className={fieldClass}
           type="password"
+          autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -56,12 +78,15 @@ export default function LoginPage() {
         />
         <button
           disabled={pending}
-          className="w-full bg-neutral-900 text-white py-2"
+          className="w-full min-h-12 rounded-xl bg-neutral-900 text-white font-semibold active:bg-neutral-800 disabled:opacity-60 touch-manipulation"
         >
           {pending ? "…" : "Log in"}
         </button>
-        <p className="text-sm text-neutral-600">
-          No account? <Link href="/register">Create one</Link>
+        <p className="text-sm text-neutral-600 text-center">
+          No account?{" "}
+          <Link href="/register" className="font-medium text-neutral-900 underline">
+            Create one
+          </Link>
         </p>
       </form>
     </main>

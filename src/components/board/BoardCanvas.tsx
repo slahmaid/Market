@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { GRID_SIZE } from "@/lib/pricing/constants";
+import {
+  cellRect,
+  hitTestCell,
+  type BoardLayout,
+} from "./boardLayout";
 import { nextBoardCoordinate } from "./boardNavigation";
 
 export type BoardSquare = {
@@ -14,7 +18,7 @@ export type BoardSquare = {
 
 type Props = {
   squares: BoardSquare[];
-  cellPx?: number;
+  layout: BoardLayout;
   scale: number;
   offsetX: number;
   offsetY: number;
@@ -24,9 +28,47 @@ type Props = {
   onViewport: (w: number, h: number) => void;
 };
 
+/** Paint the static grid once into an offscreen buffer (51+51 lines, not 2500 strokes). */
+function paintGrid(
+  ctx: CanvasRenderingContext2D,
+  layout: BoardLayout,
+  selectedId: string | null,
+  index: Map<string, BoardSquare>,
+) {
+  const { boardW, boardH, edgesX, edgesY } = layout;
+  ctx.clearRect(0, 0, boardW, boardH);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, boardW, boardH);
+
+  ctx.beginPath();
+  ctx.strokeStyle = "#e6e8ec";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < edgesX.length; i++) {
+    const x = edgesX[i]!;
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, boardH);
+  }
+  for (let i = 0; i < edgesY.length; i++) {
+    const y = edgesY[i]!;
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(boardW, y + 0.5);
+  }
+  ctx.stroke();
+
+  if (!selectedId) return;
+  for (const s of index.values()) {
+    if (s.id !== selectedId) continue;
+    const { px, py, pw, ph } = cellRect(layout, s.x, s.y);
+    ctx.strokeStyle = "#111827";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+    break;
+  }
+}
+
 export function BoardCanvas({
   squares,
-  cellPx = 12,
+  layout,
   scale,
   offsetX,
   offsetY,
@@ -37,19 +79,94 @@ export function BoardCanvas({
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const indexRef = useRef<Map<string, BoardSquare>>(new Map());
+  const gridRef = useRef<HTMLCanvasElement | null>(null);
+  const viewRef = useRef({ w: 0, h: 0, dpr: 1 });
+  const cameraRef = useRef({ scale, offsetX, offsetY });
+  const layoutRef = useRef(layout);
+  const selectedRef = useRef(selectedId);
+  const drawRafRef = useRef<number | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     x: number;
     y: number;
     moved: boolean;
+    total: number;
   } | null>(null);
   const suppressClickRef = useRef(false);
+  const onViewportRef = useRef(onViewport);
+  onViewportRef.current = onViewport;
+
+  cameraRef.current = { scale, offsetX, offsetY };
+  layoutRef.current = layout;
+  selectedRef.current = selectedId;
 
   useEffect(() => {
     const map = new Map<string, BoardSquare>();
     for (const s of squares) map.set(`${s.x},${s.y}`, s);
     indexRef.current = map;
   }, [squares]);
+
+  const rebuildGrid = () => {
+    const { boardW, boardH } = layoutRef.current;
+    let grid = gridRef.current;
+    if (!grid) {
+      grid = document.createElement("canvas");
+      gridRef.current = grid;
+    }
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.ceil(boardW * dpr));
+    const h = Math.max(1, Math.ceil(boardH * dpr));
+    if (grid.width !== w || grid.height !== h) {
+      grid.width = w;
+      grid.height = h;
+    }
+    const gctx = grid.getContext("2d");
+    if (!gctx) return;
+    gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    paintGrid(gctx, layoutRef.current, selectedRef.current, indexRef.current);
+  };
+
+  const blit = () => {
+    const canvas = canvasRef.current;
+    const grid = gridRef.current;
+    if (!canvas || !grid) return;
+    const { w, h, dpr } = viewRef.current;
+    if (w <= 0 || h <= 0) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const cam = cameraRef.current;
+    const { boardW, boardH } = layoutRef.current;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#f6f7f9";
+    ctx.fillRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(cam.offsetX, cam.offsetY);
+    ctx.scale(cam.scale, cam.scale);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(grid, 0, 0, boardW, boardH);
+    ctx.restore();
+  };
+
+  const scheduleBlit = () => {
+    if (drawRafRef.current != null) return;
+    drawRafRef.current = requestAnimationFrame(() => {
+      drawRafRef.current = null;
+      blit();
+    });
+  };
+
+  // Rebuild cached grid when content changes
+  useEffect(() => {
+    rebuildGrid();
+    scheduleBlit();
+  }, [squares, layout, selectedId]);
+
+  // Camera updates: blit only (cheap)
+  useEffect(() => {
+    scheduleBlit();
+  }, [scale, offsetX, offsetY]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -60,46 +177,25 @@ export function BoardCanvas({
     const resize = () => {
       const w = parent.clientWidth;
       const h = parent.clientHeight;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
-      onViewport(w, h);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#f6f7f9";
-      ctx.fillRect(0, 0, w, h);
-      ctx.save();
-      ctx.translate(offsetX, offsetY);
-      ctx.scale(scale, scale);
-      for (let y = 0; y < GRID_SIZE; y++) {
-        for (let x = 0; x < GRID_SIZE; x++) {
-          const s = indexRef.current.get(`${x},${y}`);
-          const px = x * cellPx;
-          const py = y * cellPx;
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(px, py, cellPx, cellPx);
-          ctx.strokeStyle = "#e6e8ec";
-          ctx.lineWidth = 1 / scale;
-          ctx.strokeRect(px, py, cellPx, cellPx);
-          if (s?.id === selectedId) {
-            ctx.strokeStyle = "#111827";
-            ctx.lineWidth = 2 / scale;
-            ctx.strokeRect(px + 0.5, py + 0.5, cellPx - 1, cellPx - 1);
-          }
-        }
-      }
-      ctx.restore();
+      viewRef.current = { w, h, dpr };
+      onViewportRef.current(w, h);
+      rebuildGrid();
+      blit();
     };
 
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(parent);
-    return () => ro.disconnect();
-  }, [squares, scale, offsetX, offsetY, selectedId, cellPx, onViewport]);
+    return () => {
+      ro.disconnect();
+      if (drawRafRef.current != null) cancelAnimationFrame(drawRafRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -119,12 +215,12 @@ export function BoardCanvas({
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const bx = (mx - offsetX) / scale;
-    const by = (my - offsetY) / scale;
-    const x = Math.floor(bx / cellPx);
-    const y = Math.floor(by / cellPx);
-    if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) return;
-    const s = indexRef.current.get(`${x},${y}`);
+    const cam = cameraRef.current;
+    const bx = (mx - cam.offsetX) / cam.scale;
+    const by = (my - cam.offsetY) / cam.scale;
+    const hit = hitTestCell(layoutRef.current, bx, by);
+    if (!hit) return;
+    const s = indexRef.current.get(`${hit.x},${hit.y}`);
     if (s) onSelect(s.id);
   }
 
@@ -136,6 +232,7 @@ export function BoardCanvas({
       x: e.clientX,
       y: e.clientY,
       moved: false,
+      total: 0,
     };
   }
 
@@ -147,6 +244,8 @@ export function BoardCanvas({
     if (deltaX === 0 && deltaY === 0) return;
     drag.x = e.clientX;
     drag.y = e.clientY;
+    drag.total += Math.hypot(deltaX, deltaY);
+    if (drag.total < 8) return;
     drag.moved = true;
     onPan(deltaX, deltaY);
   }

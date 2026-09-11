@@ -1,49 +1,99 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoardCanvas, type BoardSquare } from "@/components/board/BoardCanvas";
 import { BoardChrome } from "@/components/board/BoardChrome";
 import { SquarePanel } from "@/components/board/SquarePanel";
+import { layoutForViewport } from "@/components/board/boardLayout";
 import { useBoardCamera } from "@/components/board/useBoardCamera";
+import { listPreviewSquares } from "@/lib/previewBoard";
 
-const CELL = 12;
+async function loadSquares(): Promise<BoardSquare[]> {
+  try {
+    const response = await fetch("/api/squares");
+    const text = await response.text();
+    if (!response.ok || !text.trim()) {
+      return listPreviewSquares();
+    }
+    const data = JSON.parse(text) as { squares?: BoardSquare[] };
+    if (!Array.isArray(data.squares) || data.squares.length === 0) {
+      return listPreviewSquares();
+    }
+    return data.squares;
+  } catch {
+    return listPreviewSquares();
+  }
+}
 
 export default function HomePage() {
   const [squares, setSquares] = useState<BoardSquare[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState({ w: 0, h: 0 });
-  const { scale, offsetX, offsetY, fitToView, zoomIn, zoomOut, panBy } =
-    useBoardCamera(CELL);
+  const {
+    scale,
+    offsetX,
+    offsetY,
+    setBoardDimensions,
+    fitToView,
+    zoomIn,
+    zoomOut,
+    panBy,
+  } = useBoardCamera();
   const hasFitted = useRef(false);
 
+  const layout = useMemo(
+    () => layoutForViewport(Math.max(view.w, 1), Math.max(view.h, 1)),
+    [view.w, view.h],
+  );
+
   useEffect(() => {
-    fetch("/api/squares")
-      .then((response) => response.json())
-      .then((data) => setSquares(data.squares ?? []));
+    let cancelled = false;
+    loadSquares().then((next) => {
+      if (!cancelled) setSquares(next);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    setBoardDimensions(layout.boardW, layout.boardH);
+  }, [layout.boardH, layout.boardW, setBoardDimensions]);
 
   const onViewport = useCallback(
     (w: number, h: number) => {
       setView({ w, h });
-      if (!hasFitted.current && w > 0 && h > 0) {
+      if (w <= 0 || h <= 0) return;
+      const nextLayout = layoutForViewport(w, h);
+      if (!hasFitted.current) {
         hasFitted.current = true;
-        fitToView(w, h);
+        fitToView(w, h, nextLayout.boardW, nextLayout.boardH);
+        return;
+      }
+      // Edge-to-edge at min zoom; when zoomed keep scale and reclamping via dims
+      if (scale <= 1.001) {
+        fitToView(w, h, nextLayout.boardW, nextLayout.boardH);
+      } else {
+        setBoardDimensions(nextLayout.boardW, nextLayout.boardH);
       }
     },
-    [fitToView],
+    [fitToView, scale, setBoardDimensions],
   );
 
   return (
-    <main className="relative h-[100dvh] w-screen overflow-hidden bg-[#f6f7f9]">
+    <main
+      data-board-shell
+      className="relative h-[100dvh] w-screen overflow-hidden bg-[#f6f7f9] overscroll-none"
+    >
       <BoardCanvas
         squares={squares}
-        cellPx={CELL}
+        layout={layout}
         scale={scale}
         offsetX={offsetX}
         offsetY={offsetY}
         selectedId={selectedId}
         onSelect={setSelectedId}
-        onPan={panBy}
+        onPan={(dx, dy) => panBy(dx, dy, view.w, view.h)}
         onViewport={onViewport}
       />
       <BoardChrome
