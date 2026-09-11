@@ -1,17 +1,32 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import { z } from "zod";
 import { authorizeCredentials } from "@/lib/auth-credentials";
+import { ensureGoogleUser } from "@/lib/auth-google";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
 });
 
+const googleConfigured =
+  !!process.env.AUTH_GOOGLE_ID && !!process.env.AUTH_GOOGLE_SECRET;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
+    ...(googleConfigured
+      ? [
+          Google({
+            clientId: process.env.AUTH_GOOGLE_ID!,
+            clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+            // Product decision Phase 5a: same email = same user
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
     Credentials({
       credentials: {
         email: {},
@@ -25,8 +40,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "google") {
+        const email = user.email ?? profile?.email;
+        if (!email || !account.providerAccountId) return false;
+        const verified = (
+          profile as { email_verified?: boolean } | undefined
+        )?.email_verified;
+        if (verified === false) return false;
+        const ensured = await ensureGoogleUser({
+          email,
+          providerAccountId: account.providerAccountId,
+        });
+        user.id = ensured.id;
+      }
+      return true;
+    },
     jwt: async ({ token, user }) => {
-      if (user) token.sub = user.id;
+      if (user?.id) token.sub = user.id;
       return token;
     },
     session: async ({ session, token }) => {
