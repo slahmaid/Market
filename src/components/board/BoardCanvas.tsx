@@ -65,6 +65,19 @@ function paintGrid(
     ctx.drawImage(img, px, py, pw, ph);
   }
 
+  for (const s of index.values()) {
+    if (s.status !== "listed") continue;
+    const { px, py, pw, ph } = cellRect(layout, s.x, s.y);
+    const m = Math.max(3, Math.min(pw, ph) * 0.2);
+    ctx.fillStyle = "#0f766e";
+    ctx.beginPath();
+    ctx.moveTo(px + pw - m, py);
+    ctx.lineTo(px + pw, py);
+    ctx.lineTo(px + pw, py + m);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   if (!selectedId) return;
   for (const s of index.values()) {
     if (s.id !== selectedId) continue;
