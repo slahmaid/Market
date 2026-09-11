@@ -112,7 +112,12 @@ export default function HomePage() {
               const imageUrl = base
                 ? `${base}${base.includes("?") ? "&" : "?"}v=${Date.now()}`
                 : null;
-              return { ...s, imageUrl };
+              return {
+                ...s,
+                imageUrl,
+                status: updated.status,
+                listPriceCents: updated.listPriceCents,
+              };
             }),
           );
         }}

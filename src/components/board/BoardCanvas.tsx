@@ -14,6 +14,7 @@ export type BoardSquare = {
   y: number;
   status: string;
   imageUrl: string | null;
+  listPriceCents?: number | null;
 };
 
 type Props = {

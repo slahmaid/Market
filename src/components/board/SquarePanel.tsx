@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { startPrimaryCheckout } from "@/lib/checkout/startPrimaryCheckout";
 import { customizeSquare } from "@/lib/customize/customizeSquare";
+import { listSquare, unlistSquare } from "@/lib/listing/listSquare";
+import { classifyPrice } from "@/lib/pricing/priceComment";
 
 type Detail = {
   square: {
@@ -14,6 +16,7 @@ type Detail = {
     status: string;
     imageUrl: string | null;
     linkUrl: string | null;
+    listPriceCents: number | null;
     ownerId: string | null;
   };
   quote: {
@@ -23,6 +26,14 @@ type Detail = {
     reason: string;
   };
 };
+
+function dollarsToCents(raw: string): number | null {
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n)) return null;
+  const cents = Math.round(n * 100);
+  if (cents < 1) return null;
+  return cents;
+}
 
 function formatUsd(cents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -55,6 +66,8 @@ export function SquarePanel({
     id: string;
     imageUrl: string | null;
     linkUrl: string | null;
+    status: string;
+    listPriceCents: number | null;
   }) => void;
 }) {
   const { data: session, status: sessionStatus } = useSession();
@@ -68,6 +81,9 @@ export function SquarePanel({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
   const [thumbBust, setThumbBust] = useState(0);
+  const [listPriceInput, setListPriceInput] = useState("");
+  const [listing, setListing] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!squareId) {
@@ -85,6 +101,9 @@ export function SquarePanel({
     setSaving(false);
     setSaveError(null);
     setSaveOk(false);
+    setListPriceInput("");
+    setListing(false);
+    setListError(null);
     fetch(`/api/squares/${squareId}`)
       .then(async (r) => {
         const text = await r.text();
@@ -97,6 +116,12 @@ export function SquarePanel({
         if (!cancelled) {
           setData(j);
           setLinkUrl(j.square.linkUrl ?? "");
+          if (
+            j.square.listPriceCents != null &&
+            j.square.listPriceCents >= 1
+          ) {
+            setListPriceInput((j.square.listPriceCents / 100).toFixed(2));
+          }
         }
       })
       .catch((e) => {
@@ -167,6 +192,8 @@ export function SquarePanel({
         id: squareId,
         imageUrl: nextImage,
         linkUrl: nextLink,
+        status: data?.square.status ?? "owned",
+        listPriceCents: data?.square.listPriceCents ?? null,
       });
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Customize failed");
@@ -175,9 +202,89 @@ export function SquarePanel({
     }
   }
 
+  async function onListOrUpdate() {
+    if (!squareId || listing) return;
+    const cents = dollarsToCents(listPriceInput);
+    if (cents == null) {
+      setListError("Enter a valid price of at least $0.01");
+      return;
+    }
+    setListing(true);
+    setListError(null);
+    try {
+      const result = await listSquare(squareId, cents);
+      setData({
+        square: {
+          id: result.square.id,
+          x: result.square.x,
+          y: result.square.y,
+          status: result.square.status,
+          imageUrl: result.square.imageUrl,
+          linkUrl: result.square.linkUrl,
+          listPriceCents: result.square.listPriceCents,
+          ownerId: result.square.ownerId,
+        },
+        quote: result.quote,
+      });
+      if (
+        result.square.listPriceCents != null &&
+        result.square.listPriceCents >= 1
+      ) {
+        setListPriceInput((result.square.listPriceCents / 100).toFixed(2));
+      }
+      onSquareUpdated?.({
+        id: result.square.id,
+        imageUrl: result.square.imageUrl,
+        linkUrl: result.square.linkUrl,
+        status: result.square.status,
+        listPriceCents: result.square.listPriceCents,
+      });
+    } catch (e) {
+      setListError(e instanceof Error ? e.message : "List failed");
+    } finally {
+      setListing(false);
+    }
+  }
+
+  async function onUnlist() {
+    if (!squareId || listing) return;
+    setListing(true);
+    setListError(null);
+    try {
+      const result = await unlistSquare(squareId);
+      setData({
+        square: {
+          id: result.square.id,
+          x: result.square.x,
+          y: result.square.y,
+          status: result.square.status,
+          imageUrl: result.square.imageUrl,
+          linkUrl: result.square.linkUrl,
+          listPriceCents: result.square.listPriceCents,
+          ownerId: result.square.ownerId,
+        },
+        quote: result.quote,
+      });
+      setListPriceInput("");
+      onSquareUpdated?.({
+        id: result.square.id,
+        imageUrl: result.square.imageUrl,
+        linkUrl: result.square.linkUrl,
+        status: result.square.status,
+        listPriceCents: result.square.listPriceCents,
+      });
+    } catch (e) {
+      setListError(e instanceof Error ? e.message : "Unlist failed");
+    } finally {
+      setListing(false);
+    }
+  }
+
   if (!squareId) return null;
 
   const isPlatform = data?.square.status === "platform";
+  const isListed = data?.square.status === "listed";
+  const isOwned = data?.square.status === "owned";
   const sessionLoading = sessionStatus === "loading";
   const loggedIn = Boolean(session?.user);
   const isOwner =
@@ -185,11 +292,24 @@ export function SquarePanel({
     Boolean(data?.square.ownerId) &&
     session?.user?.id === data?.square.ownerId;
   const canCustomize =
-    isOwner &&
-    (data?.square.status === "owned" || data?.square.status === "listed");
+    isOwner && (isOwned || isListed);
+  const canList = isOwner && (isOwned || isListed);
+  const visitorListed = Boolean(data) && isListed && !isOwner;
   const visitorLink =
-    Boolean(data?.square.linkUrl) &&
-    (data?.square.status === "owned" || data?.square.status === "listed");
+    Boolean(data?.square.linkUrl) && (isOwned || isListed);
+
+  const draftCents = dollarsToCents(listPriceInput);
+  const livePreview =
+    draftCents != null && data
+      ? classifyPrice(draftCents, data.quote.suggestedPriceCents)
+      : null;
+
+  const displayAskCents =
+    canList && draftCents != null ? draftCents : (data?.quote.askCents ?? 0);
+  const displayLabel =
+    canList && livePreview ? livePreview.label : (data?.quote.label ?? "");
+  const displayReason =
+    canList && livePreview ? livePreview.reason : (data?.quote.reason ?? "");
 
   return (
     <>
@@ -254,15 +374,15 @@ export function SquarePanel({
             <div className="mt-5 space-y-4 text-sm text-neutral-800">
               <div>
                 <p className="text-3xl font-semibold tracking-tight text-neutral-900 tabular-nums">
-                  {formatUsd(data.quote.askCents)}
+                  {formatUsd(displayAskCents)}
                 </p>
                 <span
-                  className={`mt-2 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${labelTone(data.quote.label)}`}
+                  className={`mt-2 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${labelTone(displayLabel)}`}
                 >
-                  {data.quote.label}
+                  {displayLabel}
                 </span>
                 <p className="mt-2 text-sm leading-relaxed text-neutral-600">
-                  {data.quote.reason}
+                  {displayReason}
                 </p>
               </div>
 
@@ -299,6 +419,81 @@ export function SquarePanel({
                     Log in to buy
                   </Link>
                 ))}
+
+              {visitorListed && (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full min-h-12 rounded-xl bg-neutral-200 text-neutral-600 text-sm font-semibold opacity-80 touch-manipulation"
+                >
+                  Buying listed squares comes later
+                </button>
+              )}
+
+              {canList && (
+                <div className="space-y-3 border-t border-neutral-200 pt-4">
+                  <h3 className="text-sm font-semibold text-neutral-900">
+                    {isListed ? "Listing" : "List for sale"}
+                  </h3>
+                  {isListed && data.square.listPriceCents != null && (
+                    <p className="text-sm text-neutral-600">
+                      Current ask {formatUsd(data.square.listPriceCents)}
+                    </p>
+                  )}
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-neutral-600">
+                      Ask (USD)
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={listPriceInput}
+                      onChange={(e) => {
+                        setListPriceInput(e.target.value);
+                        setListError(null);
+                      }}
+                      placeholder="100.00"
+                      className="w-full min-h-11 rounded-xl border border-neutral-200 bg-white px-3 text-sm text-neutral-900 outline-none focus:border-neutral-400"
+                    />
+                  </label>
+                  {livePreview && (
+                    <p className="text-xs text-neutral-600">
+                      Preview:{" "}
+                      <span className="font-semibold uppercase">
+                        {livePreview.label}
+                      </span>{" "}
+                      — {livePreview.reason}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onListOrUpdate}
+                    disabled={listing}
+                    className="sm-press w-full min-h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold active:bg-neutral-800 disabled:opacity-60 touch-manipulation"
+                  >
+                    {listing
+                      ? "Saving…"
+                      : isListed
+                        ? "Update price"
+                        : "List"}
+                  </button>
+                  {isListed && (
+                    <button
+                      type="button"
+                      onClick={onUnlist}
+                      disabled={listing}
+                      className="sm-press w-full min-h-11 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-800 active:bg-neutral-50 disabled:opacity-60 touch-manipulation"
+                    >
+                      Unlist
+                    </button>
+                  )}
+                  {listError && (
+                    <p className="text-sm text-red-600" role="alert">
+                      {listError}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {visitorLink && !canCustomize && (
                 <button
