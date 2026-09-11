@@ -36,7 +36,8 @@ Each phase ships usable software.
 |-------|-------------|
 | **1 – Board** | Auth, canvas homepage, zoom controls, square select panel, all squares unsold |
 | **2 – Primary buy** | Stripe Checkout for platform squares, ownership transfer, image + link upload |
-| **3 – Secondary market** | Owner list price, buy from owner, 7% fee, Stripe Connect onboarding |
+| **3a – Listing** | Owner list/unlist + list price + Fair/Balanced/Unfair (no secondary Checkout; Connect later) |
+| **3b – Secondary buy** | Buy from owner, 7% fee, Stripe Connect onboarding |
 | **4 – Dashboard** | My squares, wallet/earnings, recent buyers, market overview |
 | **5 – Later** | Auctions + instant-buy, OAuth, crypto |
 
