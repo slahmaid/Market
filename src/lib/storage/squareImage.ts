@@ -6,10 +6,17 @@ const ALLOWED_IMAGE_MIMES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
-  "image/gif",
 ]);
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads", "squares");
+
+function sanitizeSquareId(squareId: string): string {
+  const safeId = path.basename(squareId);
+  if (!safeId || safeId !== squareId || safeId.includes("..")) {
+    throw new Error("Invalid square id");
+  }
+  return safeId;
+}
 
 export async function saveSquareImage(
   squareId: string,
@@ -20,14 +27,16 @@ export async function saveSquareImage(
     throw new Error("Invalid image type");
   }
 
+  const safeId = sanitizeSquareId(squareId);
+
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
 
-  const outputPath = path.join(UPLOADS_DIR, `${squareId}.webp`);
+  const outputPath = path.join(UPLOADS_DIR, `${safeId}.webp`);
 
   await sharp(bytes)
-    .resize(128, 128, { fit: "inside", withoutEnlargement: true })
+    .resize(128, 128, { fit: "cover" })
     .webp()
     .toFile(outputPath);
 
-  return `/uploads/squares/${squareId}.webp`;
+  return `/uploads/squares/${safeId}.webp`;
 }

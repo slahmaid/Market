@@ -29,6 +29,7 @@ describe("saveSquareImage", () => {
     await removeTestFile("test-square-1");
     await removeTestFile("test-square-2");
     await removeTestFile("test-square-large");
+    await removeTestFile("test-square-wide");
   });
 
   it("saves a valid PNG and returns the public web path", async () => {
@@ -54,8 +55,8 @@ describe("saveSquareImage", () => {
     await expect(fs.access(filePath)).rejects.toThrow();
   });
 
-  it("resizes large images to max 128x128", async () => {
-    const largePng = await sharp({
+  it("square-crops non-square images to 128x128", async () => {
+    const widePng = await sharp({
       create: {
         width: 400,
         height: 300,
@@ -66,12 +67,29 @@ describe("saveSquareImage", () => {
       .png()
       .toBuffer();
 
-    await saveSquareImage("test-square-large", largePng, "image/png");
+    await saveSquareImage("test-square-wide", widePng, "image/png");
 
-    const filePath = path.join(UPLOADS_DIR, "test-square-large.webp");
+    const filePath = path.join(UPLOADS_DIR, "test-square-wide.webp");
     const meta = await sharp(filePath).metadata();
 
+    expect(meta.width).toBe(128);
+    expect(meta.height).toBe(128);
+    expect(meta.width).toBe(meta.height);
     expect(meta.width).toBeLessThanOrEqual(128);
     expect(meta.height).toBeLessThanOrEqual(128);
+  });
+
+  it("rejects gif mime type", async () => {
+    const png = await createPng(8, 8);
+    await expect(
+      saveSquareImage("test-square-2", png, "image/gif"),
+    ).rejects.toThrow(/invalid image/i);
+  });
+
+  it("rejects path traversal in squareId", async () => {
+    const png = await createPng(8, 8);
+    await expect(
+      saveSquareImage("../evil", png, "image/png"),
+    ).rejects.toThrow(/invalid square id/i);
   });
 });
