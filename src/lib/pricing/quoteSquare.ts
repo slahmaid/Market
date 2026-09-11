@@ -40,3 +40,24 @@ export function buildPlatformQuote(input: {
   const { label, reason } = classifyPrice(askCents, suggestedPriceCents);
   return { suggestedPriceCents, askCents, label, reason };
 }
+
+export function buildListingQuote(input: {
+  x: number;
+  y: number;
+  listPriceCents: number;
+  multipliers?: QuoteMultipliers;
+}): PlatformQuote {
+  const base = buildPlatformQuote({
+    x: input.x,
+    y: input.y,
+    multipliers: input.multipliers,
+  });
+  const askCents = input.listPriceCents;
+  const { label, reason } = classifyPrice(askCents, base.suggestedPriceCents);
+  return {
+    suggestedPriceCents: base.suggestedPriceCents,
+    askCents,
+    label,
+    reason,
+  };
+}
