@@ -46,3 +46,7 @@ next-env.d.ts
 # Local agent scratch
 .superpowers/
 
+# uploaded square images (keep directory placeholder)
+/public/uploads/squares/**
+!/public/uploads/squares/.gitkeep
+
