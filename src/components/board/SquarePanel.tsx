@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { startPrimaryCheckout } from "@/lib/checkout/startPrimaryCheckout";
 
 type Detail = {
   square: { id: string; x: number; y: number; status: string };
@@ -44,6 +45,8 @@ export function SquarePanel({
   const { data: session } = useSession();
   const [data, setData] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!squareId) {
@@ -53,6 +56,8 @@ export function SquarePanel({
     let cancelled = false;
     setData(null);
     setError(null);
+    setBuyError(null);
+    setBuying(false);
     fetch(`/api/squares/${squareId}`)
       .then(async (r) => {
         const text = await r.text();
@@ -74,7 +79,23 @@ export function SquarePanel({
     };
   }, [squareId]);
 
+  async function onBuy() {
+    if (!squareId || buying) return;
+    setBuying(true);
+    setBuyError(null);
+    try {
+      const url = await startPrimaryCheckout(squareId);
+      window.location.assign(url);
+    } catch (e) {
+      setBuyError(e instanceof Error ? e.message : "Checkout failed");
+      setBuying(false);
+    }
+  }
+
   if (!squareId) return null;
+
+  const isPlatform = data?.square.status === "platform";
+  const loggedIn = Boolean(session?.user);
 
   return (
     <>
@@ -151,22 +172,31 @@ export function SquarePanel({
                 </p>
               </div>
 
-              {session?.user ? (
-                <button
-                  type="button"
-                  disabled
-                  className="w-full min-h-12 rounded-xl bg-neutral-200 text-neutral-600 font-medium cursor-not-allowed"
-                >
-                  Buying comes in Phase 2
-                </button>
-              ) : (
-                <Link
-                  href="/login"
-                  className="sm-press flex w-full min-h-12 items-center justify-center rounded-xl bg-neutral-900 text-white text-sm font-semibold active:bg-neutral-800 touch-manipulation"
-                >
-                  Log in to buy
-                </Link>
-              )}
+              {isPlatform &&
+                (loggedIn ? (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={onBuy}
+                      disabled={buying}
+                      className="sm-press w-full min-h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold active:bg-neutral-800 disabled:opacity-60 touch-manipulation"
+                    >
+                      {buying ? "Redirecting…" : "Buy"}
+                    </button>
+                    {buyError && (
+                      <p className="text-sm text-red-600" role="alert">
+                        {buyError}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="sm-press flex w-full min-h-12 items-center justify-center rounded-xl bg-neutral-900 text-white text-sm font-semibold active:bg-neutral-800 touch-manipulation"
+                  >
+                    Log in to buy
+                  </Link>
+                ))}
             </div>
           )}
         </div>
