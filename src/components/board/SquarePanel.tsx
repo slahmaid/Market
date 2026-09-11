@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { startPrimaryCheckout } from "@/lib/checkout/startPrimaryCheckout";
 import { customizeSquare } from "@/lib/customize/customizeSquare";
+import { dollarsToCents } from "@/lib/listing";
 import { listSquare, unlistSquare } from "@/lib/listing/listSquare";
 import { classifyPrice } from "@/lib/pricing/priceComment";
 
@@ -26,14 +27,6 @@ type Detail = {
     reason: string;
   };
 };
-
-function dollarsToCents(raw: string): number | null {
-  const n = Number.parseFloat(raw);
-  if (!Number.isFinite(n)) return null;
-  const cents = Math.round(n * 100);
-  if (cents < 1) return null;
-  return cents;
-}
 
 function formatUsd(cents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -421,13 +414,9 @@ export function SquarePanel({
                 ))}
 
               {visitorListed && (
-                <button
-                  type="button"
-                  disabled
-                  className="w-full min-h-12 rounded-xl bg-neutral-200 text-neutral-600 text-sm font-semibold opacity-80 touch-manipulation"
-                >
-                  Buying listed squares comes later
-                </button>
+                <p className="text-sm text-neutral-600">
+                  Buying listed squares comes later.
+                </p>
               )}
 
               {canList && (
@@ -435,6 +424,9 @@ export function SquarePanel({
                   <h3 className="text-sm font-semibold text-neutral-900">
                     {isListed ? "Listing" : "List for sale"}
                   </h3>
+                  <p className="text-sm text-neutral-600">
+                    Suggested: {formatUsd(data.quote.suggestedPriceCents)}
+                  </p>
                   {isListed && data.square.listPriceCents != null && (
                     <p className="text-sm text-neutral-600">
                       Current ask {formatUsd(data.square.listPriceCents)}

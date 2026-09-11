@@ -16,7 +16,14 @@ export async function GET() {
   try {
     const squares = await Promise.race([
       prisma.square.findMany({
-        select: { id: true, x: true, y: true, status: true, imageUrl: true },
+        select: {
+          id: true,
+          x: true,
+          y: true,
+          status: true,
+          imageUrl: true,
+          listPriceCents: true,
+        },
         orderBy: [{ y: "asc" }, { x: "asc" }],
       }),
       new Promise<never>((_, reject) =>

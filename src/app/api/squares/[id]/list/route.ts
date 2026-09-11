@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { assertCanList } from "@/lib/listing";
+import { assertCanList, MAX_LIST_PRICE_CENTS } from "@/lib/listing";
 import { buildListingQuote } from "@/lib/pricing";
 
 type Params = { params: Promise<{ id: string }> };
 
 const bodySchema = z.object({
-  listPriceCents: z.number().int().min(1),
+  listPriceCents: z.number().int().min(1).max(MAX_LIST_PRICE_CENTS),
 });
 
 export async function POST(req: Request, { params }: Params) {
@@ -22,7 +22,9 @@ export async function POST(req: Request, { params }: Params) {
     body = bodySchema.parse(await req.json());
   } catch {
     return NextResponse.json(
-      { error: "listPriceCents must be an integer ≥ 1" },
+      {
+        error: `listPriceCents must be an integer from 1 to ${MAX_LIST_PRICE_CENTS}`,
+      },
       { status: 400 },
     );
   }
