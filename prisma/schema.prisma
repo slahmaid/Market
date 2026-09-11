@@ -27,7 +27,7 @@ enum TransactionType {
 model User {
   id                         String   @id @default(cuid())
   email                      String   @unique
-  passwordHash               String
+  passwordHash               String?
   createdAt                  DateTime @default(now())
   stripeCustomerId           String?
   stripeConnectAccountId     String?
@@ -35,6 +35,26 @@ model User {
   squares                    Square[]      @relation("SquareOwner")
   buyerTransactions          Transaction[] @relation("BuyerTransactions")
   sellerTransactions         Transaction[] @relation("SellerTransactions")
+  accounts                   Account[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Square {
