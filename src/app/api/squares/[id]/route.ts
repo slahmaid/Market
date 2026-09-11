@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { buildPlatformQuote } from "@/lib/pricing";
+import { buildListingQuote, buildPlatformQuote } from "@/lib/pricing";
 import { getPreviewSquareDetail } from "@/lib/previewBoard";
 
 type Params = { params: Promise<{ id: string }> };
@@ -19,7 +19,14 @@ export async function GET(_req: Request, { params }: Params) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const quote = buildPlatformQuote({ x: square.x, y: square.y });
+    const quote =
+      square.status === "listed" && square.listPriceCents != null
+        ? buildListingQuote({
+            x: square.x,
+            y: square.y,
+            listPriceCents: square.listPriceCents,
+          })
+        : buildPlatformQuote({ x: square.x, y: square.y });
 
     return NextResponse.json({
       square: {
