@@ -8,11 +8,18 @@ type Params = { params: Promise<{ id: string }> };
 
 const CUSTOMIZABLE = new Set(["owned", "listed"]);
 
+/** Cap for a 128×128 tile source; reject before buffering when possible. */
+const MAX_UPLOAD_BYTES = 512_000;
+
 /** Empty string clears; omit field to leave unchanged. */
 const linkUrlSchema = z
   .string()
   .transform((v) => (v.trim() === "" ? null : v.trim()))
   .pipe(z.string().url().startsWith("https://").nullable());
+
+function isBadImageError(message: string): boolean {
+  return /invalid|unsupported|corrupt|decode|input buffer/i.test(message);
+}
 
 export async function POST(req: Request, { params }: Params) {
   const session = await auth();
@@ -22,6 +29,17 @@ export async function POST(req: Request, { params }: Params) {
 
   const userId = session.user.id;
   const { id } = await params;
+
+  const contentLength = req.headers.get("content-length");
+  if (contentLength != null) {
+    const len = Number(contentLength);
+    if (Number.isFinite(len) && len > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { error: "Image too large" },
+        { status: 413 },
+      );
+    }
+  }
 
   let formData: FormData;
   try {
@@ -67,6 +85,12 @@ export async function POST(req: Request, { params }: Params) {
     if (imageEntry.size === 0) {
       return NextResponse.json({ error: "Empty image file" }, { status: 400 });
     }
+    if (imageEntry.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { error: "Image too large" },
+        { status: 413 },
+      );
+    }
   }
 
   let square;
@@ -98,14 +122,23 @@ export async function POST(req: Request, { params }: Params) {
 
   if (hasImage && imageEntry instanceof File) {
     const bytes = Buffer.from(await imageEntry.arrayBuffer());
+    if (bytes.byteLength > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { error: "Image too large" },
+        { status: 413 },
+      );
+    }
     const mime = imageEntry.type || "application/octet-stream";
     try {
       data.imageUrl = await saveSquareImage(id, bytes, mime);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to save image";
-      const status = /invalid/i.test(message) ? 400 : 500;
-      return NextResponse.json({ error: message }, { status });
+      const status = isBadImageError(message) ? 400 : 500;
+      return NextResponse.json(
+        { error: status === 400 ? "Invalid image" : message },
+        { status },
+      );
     }
   }
 

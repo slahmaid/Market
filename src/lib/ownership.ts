@@ -41,35 +41,40 @@ function isSessionUniqueViolation(error: unknown): boolean {
 /**
  * Atomically assign a platform square to the buyer and record a primary Transaction.
  * Uses conditional updateMany so a concurrent sale cannot double-assign.
- * Same checkout session is idempotent (including P2002 on session id).
+ * Same checkout session is idempotent.
+ *
+ * P2002 on stripeCheckoutSessionId is handled *outside* the interactive
+ * transaction: catching inside an aborted Postgres txn and returning ok still
+ * fails at COMMIT. Letting the unique violation escape `$transaction` lets the
+ * outer catch treat an already-settled session as success.
  */
 export async function completePrimaryPurchase(
   input: CompletePrimaryPurchaseInput,
 ): Promise<CompletePrimaryPurchaseResult> {
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.transaction.findUnique({
-      where: { stripeCheckoutSessionId: input.stripeCheckoutSessionId },
-    });
-    if (existing) {
-      return { ok: true };
-    }
-
-    const updated = await tx.square.updateMany({
-      where: { id: input.squareId, status: "platform" },
-      data: { status: "owned", ownerId: input.buyerId },
-    });
-
-    if (updated.count === 0) {
-      const settled = await tx.transaction.findUnique({
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existing = await tx.transaction.findUnique({
         where: { stripeCheckoutSessionId: input.stripeCheckoutSessionId },
       });
-      if (settled) {
+      if (existing) {
         return { ok: true };
       }
-      return { ok: false, reason: "not_buyable" };
-    }
 
-    try {
+      const updated = await tx.square.updateMany({
+        where: { id: input.squareId, status: "platform" },
+        data: { status: "owned", ownerId: input.buyerId },
+      });
+
+      if (updated.count === 0) {
+        const settled = await tx.transaction.findUnique({
+          where: { stripeCheckoutSessionId: input.stripeCheckoutSessionId },
+        });
+        if (settled) {
+          return { ok: true };
+        }
+        return { ok: false, reason: "not_buyable" };
+      }
+
       await tx.transaction.create({
         data: {
           squareId: input.squareId,
@@ -81,13 +86,13 @@ export async function completePrimaryPurchase(
           stripeCheckoutSessionId: input.stripeCheckoutSessionId,
         },
       });
-    } catch (error) {
-      if (isSessionUniqueViolation(error)) {
-        return { ok: true };
-      }
-      throw error;
-    }
 
-    return { ok: true };
-  });
+      return { ok: true };
+    });
+  } catch (error) {
+    if (isSessionUniqueViolation(error)) {
+      return { ok: true };
+    }
+    throw error;
+  }
 }

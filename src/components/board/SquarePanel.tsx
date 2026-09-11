@@ -57,7 +57,7 @@ export function SquarePanel({
     linkUrl: string | null;
   }) => void;
 }) {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [data, setData] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
@@ -178,6 +178,7 @@ export function SquarePanel({
   if (!squareId) return null;
 
   const isPlatform = data?.square.status === "platform";
+  const sessionLoading = sessionStatus === "loading";
   const loggedIn = Boolean(session?.user);
   const isOwner =
     Boolean(session?.user?.id) &&
@@ -185,6 +186,9 @@ export function SquarePanel({
     session?.user?.id === data?.square.ownerId;
   const canCustomize =
     isOwner &&
+    (data?.square.status === "owned" || data?.square.status === "listed");
+  const visitorLink =
+    Boolean(data?.square.linkUrl) &&
     (data?.square.status === "owned" || data?.square.status === "listed");
 
   return (
@@ -263,7 +267,15 @@ export function SquarePanel({
               </div>
 
               {isPlatform &&
-                (loggedIn ? (
+                (sessionLoading ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full min-h-12 rounded-xl bg-neutral-200 text-neutral-600 text-sm font-semibold opacity-80 touch-manipulation"
+                  >
+                    Loading…
+                  </button>
+                ) : loggedIn ? (
                   <div className="space-y-2">
                     <button
                       type="button"
@@ -287,6 +299,22 @@ export function SquarePanel({
                     Log in to buy
                   </Link>
                 ))}
+
+              {visitorLink && !canCustomize && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.open(
+                      data.square.linkUrl!,
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
+                  }
+                  className="sm-press w-full min-h-11 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-800 active:bg-neutral-50 touch-manipulation"
+                >
+                  Open link
+                </button>
+              )}
 
               {canCustomize && (
                 <div className="space-y-3 border-t border-neutral-200 pt-4">

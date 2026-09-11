@@ -51,6 +51,15 @@ async function handlePrimaryCheckout(
   stripe: Stripe,
   session: Stripe.Checkout.Session,
 ): Promise<void> {
+  // Delayed methods can complete with payment_status "unpaid" — do not assign.
+  if (session.payment_status !== "paid") {
+    console.warn("Primary checkout ignored: payment not paid", {
+      sessionId: session.id,
+      paymentStatus: session.payment_status,
+    });
+    return;
+  }
+
   const squareId = session.metadata?.squareId;
   const buyerId = session.metadata?.buyerId;
 

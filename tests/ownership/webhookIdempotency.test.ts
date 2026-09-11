@@ -30,6 +30,7 @@ function primarySession(overrides: Record<string, unknown> = {}) {
   return {
     id: "cs_test_session",
     amount_total: 500,
+    payment_status: "paid",
     payment_intent: "pi_test_1",
     metadata: {
       type: "primary",
@@ -128,5 +129,32 @@ describe("stripe webhook primary ownership", () => {
     expect(res.status).toBe(200);
     expect(completePrimaryPurchase).not.toHaveBeenCalled();
     expect(refundsCreate).toHaveBeenCalled();
+  });
+
+  it("ignores unpaid completed sessions without assign or refund", async () => {
+    const res = await POST(
+      webhookRequest(primarySession({ payment_status: "unpaid" })),
+    );
+
+    expect(res.status).toBe(200);
+    expect(completePrimaryPurchase).not.toHaveBeenCalled();
+    expect(refundsCreate).not.toHaveBeenCalled();
+    expect(transactionFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("assigns when payment_status is paid", async () => {
+    transactionFindUnique.mockResolvedValue(null);
+    squareFindUnique.mockResolvedValue({ id: "sq1", status: "platform" });
+    completePrimaryPurchase.mockResolvedValue({ ok: true });
+
+    const res = await POST(webhookRequest(primarySession()));
+
+    expect(res.status).toBe(200);
+    expect(completePrimaryPurchase).toHaveBeenCalledWith({
+      squareId: "sq1",
+      buyerId: "buyer1",
+      amountCents: 500,
+      stripeCheckoutSessionId: "cs_test_session",
+    });
   });
 });

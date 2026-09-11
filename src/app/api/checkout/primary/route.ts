@@ -10,10 +10,13 @@ const bodySchema = z.object({
   squareId: z.string().min(1),
 });
 
-/** Base URL for Checkout return links. Defaults to local Next when unset. */
+/** Base URL for Checkout return links. */
 function appBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (raw) return raw.replace(/\/$/, "");
+  console.warn(
+    "NEXT_PUBLIC_APP_URL is unset; Stripe return URLs default to http://localhost:3000",
+  );
   return "http://localhost:3000";
 }
 
@@ -65,6 +68,7 @@ export async function POST(req: Request) {
     const stripe = getStripe();
     const checkout = await stripe.checkout.sessions.create({
       mode: "payment",
+      payment_method_types: ["card"],
       line_items: [
         {
           quantity: 1,
@@ -88,20 +92,21 @@ export async function POST(req: Request) {
 
     if (!checkout.url) {
       return NextResponse.json(
-        { error: "Failed to create checkout session" },
+        { error: "Checkout failed" },
         { status: 502 },
       );
     }
 
     return NextResponse.json({ url: checkout.url });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Checkout failed";
+    const message = err instanceof Error ? err.message : String(err);
     if (message.includes("STRIPE_SECRET_KEY")) {
       return NextResponse.json(
         { error: "Stripe is not configured" },
         { status: 503 },
       );
     }
-    return NextResponse.json({ error: message }, { status: 502 });
+    console.error("Primary checkout session create failed", err);
+    return NextResponse.json({ error: "Checkout failed" }, { status: 502 });
   }
 }

@@ -4,18 +4,11 @@ import { Prisma } from "@prisma/client";
 const squareUpdateMany = vi.fn();
 const transactionCreate = vi.fn();
 const transactionFindUnique = vi.fn();
+const prismaTransaction = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({
-        square: { updateMany: squareUpdateMany },
-        transaction: {
-          create: transactionCreate,
-          findUnique: transactionFindUnique,
-        },
-      }),
-    ),
+    $transaction: (...args: unknown[]) => prismaTransaction(...args),
   },
 }));
 
@@ -46,6 +39,18 @@ describe("completePrimaryPurchase", () => {
     squareUpdateMany.mockReset();
     transactionCreate.mockReset();
     transactionFindUnique.mockReset();
+    prismaTransaction.mockReset();
+    // Interactive txn mock: run callback; rethrow so outer P2002 catch can work.
+    prismaTransaction.mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          square: { updateMany: squareUpdateMany },
+          transaction: {
+            create: transactionCreate,
+            findUnique: transactionFindUnique,
+          },
+        }),
+    );
   });
 
   it("assigns ownership and creates primary Transaction when square is platform", async () => {
@@ -125,16 +130,17 @@ describe("completePrimaryPurchase", () => {
     expect(transactionCreate).not.toHaveBeenCalled();
   });
 
-  it("treats P2002 on stripeCheckoutSessionId as success", async () => {
-    transactionFindUnique.mockResolvedValue(null);
-    squareUpdateMany.mockResolvedValue({ count: 1 });
-    transactionCreate.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+  it("treats P2002 escaping $transaction as already-settled success", async () => {
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      {
         code: "P2002",
         clientVersion: "test",
         meta: { target: ["stripeCheckoutSessionId"] },
-      }),
+      },
     );
+    // Real Postgres aborts the interactive txn; Prisma surfaces P2002 from $transaction.
+    prismaTransaction.mockRejectedValue(p2002);
 
     const result = await completePrimaryPurchase({
       squareId: "sq1",
@@ -144,5 +150,6 @@ describe("completePrimaryPurchase", () => {
     });
 
     expect(result).toEqual({ ok: true });
+    expect(transactionCreate).not.toHaveBeenCalled();
   });
 });
