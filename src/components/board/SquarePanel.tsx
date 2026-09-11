@@ -67,6 +67,7 @@ export function SquarePanel({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
+  const [thumbBust, setThumbBust] = useState(0);
 
   useEffect(() => {
     if (!squareId) {
@@ -78,6 +79,7 @@ export function SquarePanel({
     setError(null);
     setBuyError(null);
     setBuying(false);
+    setThumbBust(0);
     setLinkUrl("");
     setImageFile(null);
     setSaving(false);
@@ -160,6 +162,7 @@ export function SquarePanel({
       setLinkUrl(nextLink ?? "");
       setImageFile(null);
       setSaveOk(true);
+      if (imageFile && nextImage) setThumbBust(Date.now());
       onSquareUpdated?.({
         id: squareId,
         imageUrl: nextImage,
@@ -293,7 +296,11 @@ export function SquarePanel({
                   {data.square.imageUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={data.square.imageUrl}
+                      src={
+                        thumbBust
+                          ? `${data.square.imageUrl}${data.square.imageUrl.includes("?") ? "&" : "?"}v=${thumbBust}`
+                          : data.square.imageUrl
+                      }
                       alt="Current square thumbnail"
                       className="h-16 w-16 rounded-md border border-neutral-200 object-cover"
                     />

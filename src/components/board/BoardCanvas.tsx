@@ -185,19 +185,26 @@ export function BoardCanvas({
       if (!wanted.has(url)) cache.delete(url);
     }
 
-    let cancelled = false;
     for (const url of wanted) {
-      if (cache.has(url)) continue;
+      const existing = cache.get(url);
+      // Cache hit already decoded — keep it; rebuild below will paint
+      if (existing?.complete && existing.naturalWidth > 0) continue;
+      // Drop incomplete placeholder (e.g. Strict Mode remount) so we rebind
+      if (existing) {
+        existing.onload = null;
+        existing.onerror = null;
+        cache.delete(url);
+      }
       const img = new Image();
       img.decoding = "async";
       img.onload = () => {
-        if (cancelled) return;
-        cache.set(url, img);
+        // Ignore stale handlers after remount replaced this entry
+        if (cache.get(url) !== img) return;
         rebuildGrid();
         scheduleBlit();
       };
       img.onerror = () => {
-        if (cancelled) return;
+        if (cache.get(url) !== img) return;
         cache.delete(url);
       };
       // Placeholder entry so we don't double-load while pending
@@ -209,7 +216,15 @@ export function BoardCanvas({
     scheduleBlit();
 
     return () => {
-      cancelled = true;
+      // Clear in-flight URLs so remount always re-attaches onload
+      for (const url of wanted) {
+        const img = cache.get(url);
+        if (img && !(img.complete && img.naturalWidth > 0)) {
+          img.onload = null;
+          img.onerror = null;
+          cache.delete(url);
+        }
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuildGrid/scheduleBlit are stable closures over refs
   }, [squares]);
