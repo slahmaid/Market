@@ -29,9 +29,11 @@ function oauthErrorMessage(code: string | undefined): string | null {
 export default function LoginForm({
   googleEnabled,
   oauthError,
+  callbackUrl = "/",
 }: {
   googleEnabled: boolean;
   oauthError?: string;
+  callbackUrl?: string;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -55,7 +57,7 @@ export default function LoginForm({
       setError("Invalid email or password");
       return;
     }
-    router.push("/");
+    router.push(callbackUrl);
     router.refresh();
   }
 
@@ -87,7 +89,7 @@ export default function LoginForm({
           <>
             <button
               type="button"
-              onClick={() => signIn("google", { callbackUrl: "/" })}
+              onClick={() => signIn("google", { callbackUrl })}
               className="sm-press w-full min-h-12 rounded-xl border border-neutral-200 bg-white text-sm font-semibold text-neutral-900 active:bg-neutral-50 touch-manipulation"
             >
               Continue with Google
