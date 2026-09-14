@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BoardCanvas, type BoardSquare } from "@/components/board/BoardCanvas";
 import { BoardChrome } from "@/components/board/BoardChrome";
 import { SquarePanel } from "@/components/board/SquarePanel";
@@ -25,7 +26,9 @@ async function loadSquares(): Promise<BoardSquare[]> {
   }
 }
 
-export default function HomePage() {
+function HomePageContent() {
+  const searchParams = useSearchParams();
+  const deepSquareId = searchParams.get("square");
   const [squares, setSquares] = useState<BoardSquare[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState({ w: 0, h: 0 });
@@ -55,6 +58,13 @@ export default function HomePage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!deepSquareId || squares.length === 0) return;
+    if (squares.some((s) => s.id === deepSquareId)) {
+      setSelectedId(deepSquareId);
+    }
+  }, [deepSquareId, squares]);
 
   useEffect(() => {
     setBoardDimensions(layout.boardW, layout.boardH);
@@ -123,5 +133,20 @@ export default function HomePage() {
         }}
       />
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          data-board-shell
+          className="relative h-[100dvh] w-screen overflow-hidden bg-[#f6f7f9] overscroll-none"
+        />
+      }
+    >
+      <HomePageContent />
+    </Suspense>
   );
 }
