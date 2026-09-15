@@ -69,11 +69,55 @@ model Square {
   listPriceCents Int?
   priceQuote     PriceQuote?
   transactions   Transaction[]
+  store          Store?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@unique([x, y])
   @@index([status])
+}
+
+model Store {
+  id         String    @id @default(cuid())
+  squareId   String    @unique
+  square     Square    @relation(fields: [squareId], references: [id], onDelete: Cascade)
+  name       String
+  about      String?
+  email      String?
+  phone      String?
+  address    String?
+  hours      String?
+  websiteUrl String?
+  products   Product[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Product {
+  id          String         @id @default(cuid())
+  storeId     String
+  store       Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  priceCents  Int
+  buyUrl      String?
+  active      Boolean        @default(true)
+  sortOrder   Int            @default(0)
+  images      ProductImage[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([storeId])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int     @default(0)
+
+  @@index([productId])
 }
 
 model PriceQuote {
