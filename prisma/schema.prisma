@@ -89,6 +89,7 @@ model Store {
   hours      String?
   websiteUrl String?
   products   Product[]
+  clicks     ProductClick[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -104,9 +105,22 @@ model Product {
   active      Boolean        @default(true)
   sortOrder   Int            @default(0)
   images      ProductImage[]
+  clicks      ProductClick[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
+  @@index([storeId])
+}
+
+model ProductClick {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
   @@index([storeId])
 }
 
