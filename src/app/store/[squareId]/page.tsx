@@ -111,7 +111,8 @@ export default async function PublicStorePage({ params }: Props) {
                 return (
                   <li
                     key={p.id}
-                    className="flex flex-col gap-3 rounded-xl border border-zinc-200/80 bg-white p-4"
+                    id={`product-${p.id}`}
+                    className="flex flex-col gap-3 rounded-xl border border-zinc-200/80 bg-white p-4 scroll-mt-24"
                   >
                     <div className="aspect-square w-full overflow-hidden rounded-lg bg-zinc-100">
                       {thumb ? (
