@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { serializeStorePayload } from "@/lib/store/serializeStore";
+import { MessageStoreButton } from "./message-store-button";
 
 function formatUsd(cents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -50,6 +51,7 @@ export default async function PublicStorePage({ params }: Props) {
 
         <header className="mb-10 space-y-3">
           <h1 className="text-3xl font-semibold tracking-tight">{store.name}</h1>
+          <MessageStoreButton squareId={squareId} />
           {store.about ? (
             <p className="max-w-prose text-zinc-700 whitespace-pre-wrap">{store.about}</p>
           ) : null}

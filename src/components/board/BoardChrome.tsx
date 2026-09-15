@@ -40,6 +40,12 @@ export function BoardChrome() {
         </form>
         {email ? (
           <>
+            <Link
+              href="/messages"
+              className="sm-press min-h-11 shrink-0 inline-flex items-center px-3 py-2 text-neutral-800 font-medium active:bg-white/50 rounded-xl touch-manipulation"
+            >
+              Messages
+            </Link>
             <span
               className="truncate px-3 py-2 text-neutral-700 text-xs sm:text-sm"
               title={email}
