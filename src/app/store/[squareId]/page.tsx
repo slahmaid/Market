@@ -137,8 +137,7 @@ export default async function PublicStorePage({ params }: Props) {
                       ) : null}
                       {p.buyUrl ? (
                         <a
-                          href={p.buyUrl}
-                          target="_blank"
+                          href={`/go/${p.id}`}
                           rel="noopener noreferrer"
                           className="mt-auto inline-flex min-h-11 items-center justify-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white"
                         >

@@ -23,6 +23,7 @@ export async function GET(req: Request, { params }: Params) {
         products: {
           include: {
             images: { orderBy: { sortOrder: "asc" } },
+            _count: { select: { clicks: true } },
           },
           orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         },
@@ -34,10 +35,12 @@ export async function GET(req: Request, { params }: Params) {
     }
 
     let includeInactive = false;
+    let includeClickCount = false;
     if (mine) {
       const session = await auth();
       if (session?.user?.id && session.user.id === store.square.ownerId) {
         includeInactive = true;
+        includeClickCount = true;
       }
     }
 
@@ -45,7 +48,10 @@ export async function GET(req: Request, { params }: Params) {
     void _square;
 
     return NextResponse.json(
-      serializeStorePayload(storeFields, products, { includeInactive }),
+      serializeStorePayload(storeFields, products, {
+        includeInactive,
+        includeClickCount,
+      }),
     );
   } catch {
     return NextResponse.json(

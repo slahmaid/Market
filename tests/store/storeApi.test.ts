@@ -35,6 +35,7 @@ function product(overrides: Record<string, unknown> = {}) {
     active: true,
     sortOrder: 0,
     images: [],
+    _count: { clicks: 0 },
     ...overrides,
   };
 }
@@ -76,6 +77,7 @@ describe("GET /api/stores/[squareId]", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.products.map((p: { id: string }) => p.id)).toEqual(["p1"]);
+    expect(body.products[0].clickCount).toBeUndefined();
   });
 
   it("includes inactive products for owner with mine=1", async () => {
@@ -92,7 +94,7 @@ describe("GET /api/stores/[squareId]", () => {
       websiteUrl: null,
       square: { ownerId: "owner-1" },
       products: [
-        product({ id: "p1", active: true }),
+        product({ id: "p1", active: true, _count: { clicks: 3 } }),
         product({ id: "p2", name: "B", active: false, sortOrder: 1 }),
       ],
     });
@@ -106,6 +108,8 @@ describe("GET /api/stores/[squareId]", () => {
       "p1",
       "p2",
     ]);
+    expect(body.products[0].clickCount).toBe(3);
+    expect(body.products[1].clickCount).toBe(0);
   });
 });
 

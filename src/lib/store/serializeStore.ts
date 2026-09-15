@@ -13,6 +13,7 @@ export type SerializedProduct = {
   active: boolean;
   sortOrder: number;
   images: SerializedProductImage[];
+  clickCount?: number;
 };
 
 export type SerializedStore = {
@@ -38,6 +39,8 @@ type ProductRow = {
   active: boolean;
   sortOrder: number;
   images: SerializedProductImage[];
+  _count?: { clicks: number };
+  clickCount?: number;
 };
 
 export function serializeStore(store: StoreRow): SerializedStore {
@@ -54,11 +57,14 @@ export function serializeStore(store: StoreRow): SerializedStore {
   };
 }
 
-export function serializeProduct(product: ProductRow): SerializedProduct {
+export function serializeProduct(
+  product: ProductRow,
+  opts?: { includeClickCount?: boolean },
+): SerializedProduct {
   const images = [...product.images].sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
-  return {
+  const serialized: SerializedProduct = {
     id: product.id,
     name: product.name,
     description: product.description,
@@ -72,12 +78,17 @@ export function serializeProduct(product: ProductRow): SerializedProduct {
       sortOrder: img.sortOrder,
     })),
   };
+  if (opts?.includeClickCount) {
+    serialized.clickCount =
+      product.clickCount ?? product._count?.clicks ?? 0;
+  }
+  return serialized;
 }
 
 export function serializeStorePayload(
   store: StoreRow,
   products: ProductRow[],
-  opts?: { includeInactive?: boolean },
+  opts?: { includeInactive?: boolean; includeClickCount?: boolean },
 ): { store: SerializedStore; products: SerializedProduct[] } {
   const filtered = opts?.includeInactive
     ? products
@@ -90,6 +101,8 @@ export function serializeStorePayload(
 
   return {
     store: serializeStore(store),
-    products: ordered.map(serializeProduct),
+    products: ordered.map((p) =>
+      serializeProduct(p, { includeClickCount: opts?.includeClickCount }),
+    ),
   };
 }

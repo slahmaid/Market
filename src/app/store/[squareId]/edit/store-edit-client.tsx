@@ -22,6 +22,7 @@ type ProductRow = {
   active: boolean;
   sortOrder: number;
   images: { id: string; url: string; sortOrder: number }[];
+  clickCount?: number;
 };
 
 const emptyStore: StoreFields = {
@@ -414,6 +415,9 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
                                 <p className="text-sm text-zinc-600">
                                   {formatUsd(p.priceCents)}
                                   {!p.active ? " · hidden" : ""}
+                                  {typeof p.clickCount === "number"
+                                    ? ` · ${p.clickCount} click${p.clickCount === 1 ? "" : "s"}`
+                                    : ""}
                                 </p>
                               </div>
                               <div className="flex flex-wrap gap-2 text-sm">
