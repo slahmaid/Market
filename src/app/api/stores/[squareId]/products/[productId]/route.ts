@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireSquareStoreOwner } from "@/lib/store/assertSquareStoreOwner";
 import { serializeProduct } from "@/lib/store/serializeStore";
 import { productPatchSchema } from "@/lib/store/storeSchemas";
+import { deleteProductImageFile } from "@/lib/storage/productImage";
 
 type Params = {
   params: Promise<{ squareId: string; productId: string }>;
@@ -100,6 +101,9 @@ export async function DELETE(_req: Request, { params }: Params) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
+    for (const img of existing.images) {
+      await deleteProductImageFile(img.url);
+    }
     await prisma.product.delete({ where: { id: productId } });
     return NextResponse.json({ ok: true });
   } catch {

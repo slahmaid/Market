@@ -407,7 +407,7 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
                             </div>
                           </div>
                         ) : (
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
                               <div>
                                 <p className="font-medium">{p.name}</p>
@@ -442,6 +442,93 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
                                   Delete
                                 </button>
                               </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {p.images.map((img) => (
+                                <div key={img.id} className="relative">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={img.url}
+                                    alt=""
+                                    className="h-16 w-16 rounded object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={productBusy}
+                                    className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 text-xs text-white"
+                                    onClick={() =>
+                                      void (async () => {
+                                        setProductBusy(true);
+                                        try {
+                                          const res = await fetch(
+                                            `/api/stores/${squareId}/products/${p.id}/images/${img.id}`,
+                                            { method: "DELETE" },
+                                          );
+                                          if (!res.ok) throw new Error("Remove failed");
+                                          await load();
+                                        } catch (err) {
+                                          setProductError(
+                                            err instanceof Error
+                                              ? err.message
+                                              : "Remove failed",
+                                          );
+                                        } finally {
+                                          setProductBusy(false);
+                                        }
+                                      })()
+                                    }
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                              {p.images.length < 5 ? (
+                                <label className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-dashed border-zinc-300 text-xs text-zinc-500">
+                                  +
+                                  <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    className="hidden"
+                                    disabled={productBusy}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      e.target.value = "";
+                                      if (!file) return;
+                                      void (async () => {
+                                        setProductBusy(true);
+                                        setProductError(null);
+                                        try {
+                                          const fd = new FormData();
+                                          fd.set("image", file);
+                                          const res = await fetch(
+                                            `/api/stores/${squareId}/products/${p.id}/images`,
+                                            { method: "POST", body: fd },
+                                          );
+                                          if (!res.ok) {
+                                            const body = (await res
+                                              .json()
+                                              .catch(() => null)) as
+                                              | { error?: string }
+                                              | null;
+                                            throw new Error(
+                                              body?.error ?? "Upload failed",
+                                            );
+                                          }
+                                          await load();
+                                        } catch (err) {
+                                          setProductError(
+                                            err instanceof Error
+                                              ? err.message
+                                              : "Upload failed",
+                                          );
+                                        } finally {
+                                          setProductBusy(false);
+                                        }
+                                      })();
+                                    }}
+                                  />
+                                </label>
+                              ) : null}
                             </div>
                           </div>
                         )}
