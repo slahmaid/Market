@@ -506,6 +506,28 @@ export function SquarePanel({
               {canCustomize && (
                 <div className="space-y-3 border-t border-neutral-200 pt-4">
                   <h3 className="text-sm font-semibold text-neutral-900">
+                    Store
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    <a
+                      href={`/store/${data.square.id}`}
+                      className="sm-press inline-flex min-h-11 items-center justify-center rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-800"
+                    >
+                      View store
+                    </a>
+                    <a
+                      href={`/store/${data.square.id}/edit`}
+                      className="sm-press inline-flex min-h-11 items-center justify-center rounded-xl bg-neutral-900 text-sm font-semibold text-white"
+                    >
+                      Edit store
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {canCustomize && (
+                <div className="space-y-3 border-t border-neutral-200 pt-4">
+                  <h3 className="text-sm font-semibold text-neutral-900">
                     Customize
                   </h3>
                   {data.square.imageUrl && (

@@ -103,10 +103,10 @@ export default function MySquaresClient() {
           {squares !== null && !error && squares.length > 0 && (
             <ul className="divide-y divide-neutral-100">
               {squares.map((square) => (
-                <li key={square.id}>
+                <li key={square.id} className="px-4 py-3">
                   <Link
                     href={`/?square=${square.id}`}
-                    className="sm-press flex min-h-11 items-center gap-3 px-4 py-3 active:bg-neutral-50 touch-manipulation"
+                    className="sm-press flex min-h-11 items-center gap-3 active:bg-neutral-50 touch-manipulation rounded-lg"
                   >
                     <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100">
                       {square.imageUrl ? (
@@ -145,6 +145,20 @@ export default function MySquaresClient() {
                       </div>
                     </div>
                   </Link>
+                  <div className="mt-2 flex flex-wrap gap-3 pl-[4.25rem] text-sm">
+                    <Link
+                      href={`/store/${square.id}`}
+                      className="text-neutral-600 underline-offset-2 hover:underline"
+                    >
+                      View store
+                    </Link>
+                    <Link
+                      href={`/store/${square.id}/edit`}
+                      className="text-neutral-600 underline-offset-2 hover:underline"
+                    >
+                      Edit store
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>
