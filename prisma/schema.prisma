@@ -24,6 +24,11 @@ enum TransactionType {
   secondary
 }
 
+enum ConversationStatus {
+  open
+  archived
+}
+
 model User {
   id                         String   @id @default(cuid())
   email                      String   @unique
@@ -36,6 +41,8 @@ model User {
   buyerTransactions          Transaction[] @relation("BuyerTransactions")
   sellerTransactions         Transaction[] @relation("SellerTransactions")
   accounts                   Account[]
+  buyerConversations         Conversation[] @relation("ConversationBuyer")
+  sentMessages               Message[]      @relation("MessageSender")
 }
 
 model Account {
@@ -90,6 +97,7 @@ model Store {
   websiteUrl String?
   products   Product[]
   clicks     ProductClick[]
+  conversations Conversation[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -160,4 +168,34 @@ model Transaction {
 
   @@index([squareId])
   @@index([buyerId])
+}
+
+model Conversation {
+  id        String             @id @default(cuid())
+  storeId   String
+  store     Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  buyerId   String
+  buyer     User               @relation("ConversationBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  status    ConversationStatus @default(open)
+  messages  Message[]
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@unique([storeId, buyerId])
+  @@index([buyerId])
+  @@index([storeId])
+  @@index([updatedAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
 }
