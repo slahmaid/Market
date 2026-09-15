@@ -8,8 +8,9 @@ export type SquareBuySnapshot = {
 
 export function assertSquareBuyable(
   square: SquareBuySnapshot,
-  _buyerId: string,
+  _buyerId?: string,
 ): void {
+  void _buyerId;
   if (square.status === "owned") {
     throw new Error("Square is already owned");
   }

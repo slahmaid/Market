@@ -48,9 +48,13 @@ export function buildBoardLayout(boardW: number, boardH: number): BoardLayout {
   };
 }
 
-/** Aspect-matched logical board for a viewport (fills screen at scale 1). */
+/**
+ * Square logical board that fits inside the viewport.
+ * Side panels absorb leftover width so the board stays flush.
+ */
 export function layoutForViewport(viewW: number, viewH: number): BoardLayout {
-  return buildBoardLayout(Math.max(1, viewW), Math.max(1, viewH));
+  const side = Math.max(1, Math.min(viewW, viewH));
+  return buildBoardLayout(side, side);
 }
 
 export function cellRect(

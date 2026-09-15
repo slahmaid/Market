@@ -32,7 +32,7 @@ describe("board camera transforms", () => {
     expect(restored.offsetY).toBeCloseTo(fitted.offsetY);
   });
 
-  it("uses fit scale as max zoom-out (full-screen edges)", () => {
+  it("uses fit scale as max zoom-out (entire board visible)", () => {
     expect(fitScaleForView(1280, 800, 1280, 800)).toBeCloseTo(1);
     const fitted = fitCameraToView(1280, 800, 1280, 800);
     const overZoomedOut = zoomCameraAtCenter(
@@ -46,6 +46,13 @@ describe("board camera transforms", () => {
     expect(overZoomedOut.scale).toBeCloseTo(1);
     expect(overZoomedOut.offsetX).toBeCloseTo(0);
     expect(overZoomedOut.offsetY).toBeCloseTo(0);
+  });
+
+  it("centers a square board in a wide viewport", () => {
+    const fitted = fitCameraToView(720, 720, 1280, 720);
+    expect(fitted.scale).toBeCloseTo(1);
+    expect(fitted.offsetX).toBeCloseTo((1280 - 720) / 2);
+    expect(fitted.offsetY).toBeCloseTo(0);
   });
 
   it("does not allow panning outside the board", () => {

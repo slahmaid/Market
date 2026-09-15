@@ -19,6 +19,7 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/** Min zoom: entire board visible (contain / letterbox), never cropped. */
 export function fitScaleForView(
   boardW: number,
   boardH: number,
@@ -26,7 +27,7 @@ export function fitScaleForView(
   viewH: number,
 ): number {
   if (viewW <= 0 || viewH <= 0 || boardW <= 0 || boardH <= 0) return 1;
-  return Math.max(viewW / boardW, viewH / boardH);
+  return Math.min(viewW / boardW, viewH / boardH);
 }
 
 export function clampScale(

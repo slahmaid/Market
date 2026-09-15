@@ -4,6 +4,7 @@ import {
   centerCellSize,
   cornerCellSize,
   hitTestCell,
+  layoutForViewport,
 } from "@/components/board/boardLayout";
 import { GRID_SIZE } from "@/lib/pricing/constants";
 
@@ -14,6 +15,12 @@ describe("boardLayout", () => {
     expect(layout.edgesY[0]).toBe(0);
     expect(layout.edgesX[GRID_SIZE]).toBeCloseTo(1000);
     expect(layout.edgesY[GRID_SIZE]).toBeCloseTo(800);
+  });
+
+  it("uses a square board for any viewport", () => {
+    const layout = layoutForViewport(1280, 720);
+    expect(layout.boardW).toBe(720);
+    expect(layout.boardH).toBe(720);
   });
 
   it("makes center cells larger than corner cells", () => {

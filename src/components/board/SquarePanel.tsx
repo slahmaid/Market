@@ -315,9 +315,9 @@ export function SquarePanel({
       />
 
       <aside
-        className="sm-panel fixed z-30 bg-white shadow-xl
+        className="sm-panel sm-glass-strong fixed z-30 shadow-xl
           max-md:inset-x-0 max-md:bottom-0 max-md:left-0 max-md:right-0
-          max-md:rounded-t-2xl max-md:border-t max-md:border-black/10
+          max-md:rounded-t-3xl max-md:border-t max-md:border-black/10
           max-md:max-h-[min(70dvh,520px)] max-md:overflow-y-auto
           md:inset-y-0 md:right-0 md:top-0 md:h-full md:w-full md:max-w-md
           md:border-l md:border-black/10 md:rounded-none"

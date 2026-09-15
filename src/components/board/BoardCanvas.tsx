@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   cellRect,
   hitTestCell,
@@ -29,6 +29,14 @@ type Props = {
   onViewport: (w: number, h: number) => void;
 };
 
+type HoverTip = {
+  x: number;
+  y: number;
+  status: string;
+  clientX: number;
+  clientY: number;
+};
+
 /** Paint the static grid once into an offscreen buffer (51+51 lines, not 2500 strokes). */
 function paintGrid(
   ctx: CanvasRenderingContext2D,
@@ -43,7 +51,7 @@ function paintGrid(
   ctx.fillRect(0, 0, boardW, boardH);
 
   ctx.beginPath();
-  ctx.strokeStyle = "#e6e8ec";
+  ctx.strokeStyle = "#e8eaef";
   ctx.lineWidth = 1;
   for (let i = 0; i < edgesX.length; i++) {
     const x = edgesX[i]!;
@@ -82,11 +90,16 @@ function paintGrid(
   for (const s of index.values()) {
     if (s.id !== selectedId) continue;
     const { px, py, pw, ph } = cellRect(layout, s.x, s.y);
-    ctx.strokeStyle = "#111827";
+    ctx.strokeStyle = "#1c1c1e";
     ctx.lineWidth = 2;
     ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
     break;
   }
+}
+
+function prefersFinePointer(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(pointer: fine)").matches;
 }
 
 export function BoardCanvas({
@@ -101,6 +114,7 @@ export function BoardCanvas({
   onViewport,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const indexRef = useRef<Map<string, BoardSquare>>(new Map());
   const gridRef = useRef<HTMLCanvasElement | null>(null);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -108,6 +122,7 @@ export function BoardCanvas({
   const cameraRef = useRef({ scale, offsetX, offsetY });
   const layoutRef = useRef(layout);
   const selectedRef = useRef(selectedId);
+  const hoverRef = useRef<{ x: number; y: number } | null>(null);
   const drawRafRef = useRef<number | null>(null);
   const dragRef = useRef<{
     pointerId: number;
@@ -119,6 +134,8 @@ export function BoardCanvas({
   const suppressClickRef = useRef(false);
   const onViewportRef = useRef(onViewport);
   onViewportRef.current = onViewport;
+
+  const [hoverTip, setHoverTip] = useState<HoverTip | null>(null);
 
   cameraRef.current = { scale, offsetX, offsetY };
   layoutRef.current = layout;
@@ -166,16 +183,33 @@ export function BoardCanvas({
     if (!ctx) return;
     const cam = cameraRef.current;
     const { boardW, boardH } = layoutRef.current;
+    const hover = hoverRef.current;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "#f6f7f9";
+    ctx.fillStyle = "#f4f5f8";
     ctx.fillRect(0, 0, w, h);
     ctx.save();
     ctx.translate(cam.offsetX, cam.offsetY);
     ctx.scale(cam.scale, cam.scale);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(grid, 0, 0, boardW, boardH);
+
+    if (hover) {
+      const { px, py, pw, ph } = cellRect(layoutRef.current, hover.x, hover.y);
+      // Soft veil so the hovered cell reads as lifted
+      ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+      ctx.fillRect(0, 0, boardW, boardH);
+      ctx.clearRect(px, py, pw, ph);
+      ctx.drawImage(grid, px, py, pw, ph, px, py, pw, ph);
+
+      ctx.fillStyle = "rgba(0, 122, 255, 0.14)";
+      ctx.fillRect(px, py, pw, ph);
+      ctx.strokeStyle = "rgba(0, 122, 255, 0.7)";
+      ctx.lineWidth = Math.max(1.5, 2 / cam.scale);
+      ctx.strokeRect(px + 0.75, py + 0.75, pw - 1.5, ph - 1.5);
+    }
+
     ctx.restore();
   };
 
@@ -185,6 +219,12 @@ export function BoardCanvas({
       drawRafRef.current = null;
       blit();
     });
+  };
+
+  const clearHover = () => {
+    hoverRef.current = null;
+    setHoverTip(null);
+    scheduleBlit();
   };
 
   // Load / prune Image objects when square imageUrl map changes
@@ -201,9 +241,7 @@ export function BoardCanvas({
 
     for (const url of wanted) {
       const existing = cache.get(url);
-      // Cache hit already decoded — keep it; rebuild below will paint
       if (existing?.complete && existing.naturalWidth > 0) continue;
-      // Drop incomplete placeholder (e.g. Strict Mode remount) so we rebind
       if (existing) {
         existing.onload = null;
         existing.onerror = null;
@@ -212,7 +250,6 @@ export function BoardCanvas({
       const img = new Image();
       img.decoding = "async";
       img.onload = () => {
-        // Ignore stale handlers after remount replaced this entry
         if (cache.get(url) !== img) return;
         rebuildGrid();
         scheduleBlit();
@@ -221,7 +258,6 @@ export function BoardCanvas({
         if (cache.get(url) !== img) return;
         cache.delete(url);
       };
-      // Placeholder entry so we don't double-load while pending
       cache.set(url, img);
       img.src = url;
     }
@@ -230,7 +266,6 @@ export function BoardCanvas({
     scheduleBlit();
 
     return () => {
-      // Clear in-flight URLs so remount always re-attaches onload
       for (const url of wanted) {
         const img = cache.get(url);
         if (img && !(img.complete && img.naturalWidth > 0)) {
@@ -243,15 +278,15 @@ export function BoardCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuildGrid/scheduleBlit are stable closures over refs
   }, [squares]);
 
-  // Rebuild cached grid when layout/selection changes
   useEffect(() => {
     rebuildGrid();
     scheduleBlit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleBlit/rebuildGrid close over refs
   }, [layout, selectedId]);
 
-  // Camera updates: blit only (cheap)
   useEffect(() => {
     scheduleBlit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleBlit closes over refs
   }, [scale, offsetX, offsetY]);
 
   useEffect(() => {
@@ -291,20 +326,58 @@ export function BoardCanvas({
     return () => canvas.removeEventListener("wheel", onWheel);
   }, []);
 
+  function boardPointFromClient(clientX: number, clientY: number) {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const mx = clientX - rect.left;
+    const my = clientY - rect.top;
+    const cam = cameraRef.current;
+    return {
+      bx: (mx - cam.offsetX) / cam.scale,
+      by: (my - cam.offsetY) / cam.scale,
+      localX: mx,
+      localY: my,
+    };
+  }
+
+  function updateHover(clientX: number, clientY: number) {
+    if (!prefersFinePointer() || dragRef.current?.moved) {
+      clearHover();
+      return;
+    }
+    const pt = boardPointFromClient(clientX, clientY);
+    if (!pt) return;
+    const hit = hitTestCell(layoutRef.current, pt.bx, pt.by);
+    if (!hit) {
+      clearHover();
+      return;
+    }
+    const square = indexRef.current.get(`${hit.x},${hit.y}`);
+    const prev = hoverRef.current;
+    if (!prev || prev.x !== hit.x || prev.y !== hit.y) {
+      hoverRef.current = { x: hit.x, y: hit.y };
+      scheduleBlit();
+    }
+    const wrap = wrapRef.current;
+    const wrapRect = wrap?.getBoundingClientRect();
+    setHoverTip({
+      x: hit.x,
+      y: hit.y,
+      status: square?.status ?? "platform",
+      clientX: wrapRect ? clientX - wrapRect.left : pt.localX,
+      clientY: wrapRect ? clientY - wrapRect.top : pt.localY,
+    });
+  }
+
   function handleClick(e: React.MouseEvent<HTMLCanvasElement>) {
     if (suppressClickRef.current) {
       suppressClickRef.current = false;
       return;
     }
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const cam = cameraRef.current;
-    const bx = (mx - cam.offsetX) / cam.scale;
-    const by = (my - cam.offsetY) / cam.scale;
-    const hit = hitTestCell(layoutRef.current, bx, by);
+    const pt = boardPointFromClient(e.clientX, e.clientY);
+    if (!pt) return;
+    const hit = hitTestCell(layoutRef.current, pt.bx, pt.by);
     if (!hit) return;
     const s = indexRef.current.get(`${hit.x},${hit.y}`);
     if (s) onSelect(s.id);
@@ -324,16 +397,22 @@ export function BoardCanvas({
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    const deltaX = e.clientX - drag.x;
-    const deltaY = e.clientY - drag.y;
-    if (deltaX === 0 && deltaY === 0) return;
-    drag.x = e.clientX;
-    drag.y = e.clientY;
-    drag.total += Math.hypot(deltaX, deltaY);
-    if (drag.total < 8) return;
-    drag.moved = true;
-    onPan(deltaX, deltaY);
+    if (drag && drag.pointerId === e.pointerId) {
+      const deltaX = e.clientX - drag.x;
+      const deltaY = e.clientY - drag.y;
+      if (deltaX !== 0 || deltaY !== 0) {
+        drag.x = e.clientX;
+        drag.y = e.clientY;
+        drag.total += Math.hypot(deltaX, deltaY);
+        if (drag.total >= 8) {
+          drag.moved = true;
+          clearHover();
+          onPan(deltaX, deltaY);
+        }
+      }
+      return;
+    }
+    updateHover(e.clientX, e.clientY);
   }
 
   function finishPointer(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -344,6 +423,7 @@ export function BoardCanvas({
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
+    if (!drag.moved) updateHover(e.clientX, e.clientY);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLCanvasElement>) {
@@ -358,19 +438,44 @@ export function BoardCanvas({
     if (square) onSelect(square.id);
   }
 
+  const tipStyle = hoverTip
+    ? {
+        left: Math.min(
+          hoverTip.clientX + 14,
+          (wrapRef.current?.clientWidth ?? 320) - 140,
+        ),
+        top: Math.max(8, hoverTip.clientY - 52),
+      }
+    : undefined;
+
   return (
-    <canvas
-      ref={canvasRef}
-      className="block h-full w-full cursor-grab touch-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600 active:cursor-grabbing"
-      onClick={handleClick}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={finishPointer}
-      onPointerCancel={finishPointer}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      role="application"
-      aria-label="Square market board. Use arrow keys to move the selection."
-    />
+    <div ref={wrapRef} className="relative h-full w-full">
+      <canvas
+        ref={canvasRef}
+        className="block h-full w-full cursor-grab touch-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)] active:cursor-grabbing"
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishPointer}
+        onPointerCancel={finishPointer}
+        onPointerLeave={clearHover}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="application"
+        aria-label="Square market board. Use arrow keys to move the selection."
+      />
+      {hoverTip && (
+        <div
+          className="sm-glass-tip pointer-events-none absolute z-10 rounded-2xl px-3 py-2 text-xs"
+          style={tipStyle}
+          role="status"
+        >
+          <p className="font-semibold tabular-nums text-neutral-900">
+            ({hoverTip.x}, {hoverTip.y})
+          </p>
+          <p className="mt-0.5 capitalize text-neutral-500">{hoverTip.status}</p>
+        </div>
+      )}
+    </div>
   );
 }
