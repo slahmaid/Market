@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { AppChrome } from "@/components/board/AppChrome";
 
 type StoreFields = {
   name: string;
@@ -331,11 +332,9 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
 
   return (
     <main className="min-h-screen bg-[#f6f7f9] text-zinc-900">
+      <AppChrome />
       <div className="mx-auto max-w-xl px-4 py-8 sm:px-6">
         <div className="mb-6 flex flex-wrap gap-3 text-sm">
-          <Link href="/" className="text-zinc-600 underline-offset-2 hover:underline">
-            ← Board
-          </Link>
           <Link
             href="/dashboard"
             className="text-zinc-600 underline-offset-2 hover:underline"

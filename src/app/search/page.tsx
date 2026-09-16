@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppChrome } from "@/components/board/AppChrome";
 import { searchMarketplace } from "@/lib/search/searchMarketplace";
 
 function formatUsd(cents: number) {
@@ -20,13 +21,8 @@ export default async function SearchPage({ searchParams }: Props) {
 
   return (
     <main className="min-h-screen bg-[#f6f7f9] text-zinc-900">
+      <AppChrome active="search" />
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm">
-          <Link href="/" className="text-zinc-600 underline-offset-2 hover:underline">
-            ← Board
-          </Link>
-        </div>
-
         <h1 className="text-2xl font-semibold tracking-tight">Search</h1>
 
         <form method="GET" action="/search" className="mt-4 flex gap-2">

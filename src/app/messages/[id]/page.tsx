@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { AppChrome } from "@/components/board/AppChrome";
 import { auth } from "@/lib/auth";
 import { assertConversationAccess } from "@/lib/chat/assertConversationAccess";
 import { prisma } from "@/lib/db";
@@ -37,6 +38,7 @@ export default async function MessageThreadPage({ params }: Props) {
 
   return (
     <main className="min-h-screen bg-[#f6f7f9] text-zinc-900">
+      <AppChrome active="messages" />
       <div className="mx-auto flex max-w-xl flex-col px-4 py-8" style={{ minHeight: "100dvh" }}>
         <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
           <Link

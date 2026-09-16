@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AppChrome } from "@/components/board/AppChrome";
 import { prisma } from "@/lib/db";
 import { serializeStorePayload } from "@/lib/store/serializeStore";
 import { MessageStoreButton } from "./message-store-button";
@@ -42,13 +43,8 @@ export default async function PublicStorePage({ params }: Props) {
 
   return (
     <main className="min-h-screen bg-[#f6f7f9] text-zinc-900">
+      <AppChrome />
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm">
-          <Link href="/" className="text-zinc-600 underline-offset-2 hover:underline">
-            ← Board
-          </Link>
-        </div>
-
         <header className="mb-10 space-y-3">
           <h1 className="text-3xl font-semibold tracking-tight">{store.name}</h1>
           <MessageStoreButton squareId={squareId} />

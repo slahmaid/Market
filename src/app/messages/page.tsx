@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { AppChrome } from "@/components/board/AppChrome";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -51,12 +52,8 @@ export default async function MessagesInboxPage() {
 
   return (
     <main className="min-h-screen bg-[#f6f7f9] text-zinc-900">
+      <AppChrome active="messages" />
       <div className="mx-auto max-w-xl px-4 py-8">
-        <div className="mb-6 flex gap-3 text-sm">
-          <Link href="/" className="text-zinc-600 underline-offset-2 hover:underline">
-            ← Board
-          </Link>
-        </div>
         <h1 className="text-2xl font-semibold">Messages</h1>
         {items.length === 0 ? (
           <p className="mt-6 text-sm text-zinc-600">No conversations yet.</p>
