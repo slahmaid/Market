@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import {
+  computeClickFeeCents,
+  getCommissionFeeBps,
+} from "@/lib/commission/fee";
 
 type Params = { params: Promise<{ productId: string }> };
 
@@ -11,6 +15,7 @@ export async function GET(_req: Request, { params }: Params) {
     active: boolean;
     buyUrl: string | null;
     storeId: string;
+    priceCents: number;
   } | null;
 
   try {
@@ -21,6 +26,7 @@ export async function GET(_req: Request, { params }: Params) {
         active: true,
         buyUrl: true,
         storeId: true,
+        priceCents: true,
       },
     });
   } catch {
@@ -39,11 +45,17 @@ export async function GET(_req: Request, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const feeBps = getCommissionFeeBps();
+  const feeCents = computeClickFeeCents(product.priceCents, feeBps);
+
   try {
     await prisma.productClick.create({
       data: {
         productId: product.id,
         storeId: product.storeId,
+        priceCentsAtClick: product.priceCents,
+        feeBps,
+        feeCents,
       },
     });
   } catch (e) {

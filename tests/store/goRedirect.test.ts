@@ -19,7 +19,10 @@ import { GET } from "@/app/go/[productId]/route";
 const params = Promise.resolve({ productId: "prod1" });
 
 describe("GET /go/[productId]", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.COMMISSION_FEE_BPS = "700";
+  });
 
   it("302 redirects and logs click for active https product", async () => {
     mockProductFindUnique.mockResolvedValue({
@@ -27,6 +30,7 @@ describe("GET /go/[productId]", () => {
       active: true,
       buyUrl: "https://example.com/item",
       storeId: "st1",
+      priceCents: 1999,
     });
     mockClickCreate.mockResolvedValue({ id: "c1" });
 
@@ -35,7 +39,13 @@ describe("GET /go/[productId]", () => {
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("https://example.com/item");
     expect(mockClickCreate).toHaveBeenCalledWith({
-      data: { productId: "prod1", storeId: "st1" },
+      data: {
+        productId: "prod1",
+        storeId: "st1",
+        priceCentsAtClick: 1999,
+        feeBps: 700,
+        feeCents: 139,
+      },
     });
   });
 
@@ -45,6 +55,7 @@ describe("GET /go/[productId]", () => {
       active: false,
       buyUrl: "https://example.com/item",
       storeId: "st1",
+      priceCents: 1999,
     });
 
     const res = await GET(new Request("http://localhost/go/prod1"), { params });
@@ -58,6 +69,7 @@ describe("GET /go/[productId]", () => {
       active: true,
       buyUrl: null,
       storeId: "st1",
+      priceCents: 1999,
     });
 
     const res = await GET(new Request("http://localhost/go/prod1"), { params });
@@ -71,11 +83,21 @@ describe("GET /go/[productId]", () => {
       active: true,
       buyUrl: "https://example.com/item",
       storeId: "st1",
+      priceCents: 1999,
     });
     mockClickCreate.mockRejectedValue(new Error("db down"));
 
     const res = await GET(new Request("http://localhost/go/prod1"), { params });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("https://example.com/item");
+    expect(mockClickCreate).toHaveBeenCalledWith({
+      data: {
+        productId: "prod1",
+        storeId: "st1",
+        priceCentsAtClick: 1999,
+        feeBps: 700,
+        feeCents: 139,
+      },
+    });
   });
 });
