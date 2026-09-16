@@ -121,12 +121,15 @@ model Product {
 }
 
 model ProductClick {
-  id        String   @id @default(cuid())
-  productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  storeId   String
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  productId         String
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storeId           String
+  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  priceCentsAtClick Int?
+  feeBps            Int?
+  feeCents          Int?
 
   @@index([productId])
   @@index([storeId])
