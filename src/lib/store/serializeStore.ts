@@ -28,9 +28,18 @@ export type SerializedStore = {
   hours: string | null;
   websiteUrl: string | null;
   estimatedOwedCents?: number;
+  lifetimeFeesCents?: number;
+  paidCents?: number;
+  canPayCommission?: boolean;
 };
 
-type StoreRow = Omit<SerializedStore, "estimatedOwedCents">;
+type StoreRow = Omit<
+  SerializedStore,
+  | "estimatedOwedCents"
+  | "lifetimeFeesCents"
+  | "paidCents"
+  | "canPayCommission"
+>;
 
 type ProductRow = {
   id: string;
@@ -48,7 +57,12 @@ type ProductRow = {
 
 export function serializeStore(
   store: StoreRow,
-  opts?: { estimatedOwedCents?: number },
+  opts?: {
+    estimatedOwedCents?: number;
+    lifetimeFeesCents?: number;
+    paidCents?: number;
+    canPayCommission?: boolean;
+  },
 ): SerializedStore {
   const serialized: SerializedStore = {
     id: store.id,
@@ -63,6 +77,15 @@ export function serializeStore(
   };
   if (opts?.estimatedOwedCents !== undefined) {
     serialized.estimatedOwedCents = opts.estimatedOwedCents;
+  }
+  if (opts?.lifetimeFeesCents !== undefined) {
+    serialized.lifetimeFeesCents = opts.lifetimeFeesCents;
+  }
+  if (opts?.paidCents !== undefined) {
+    serialized.paidCents = opts.paidCents;
+  }
+  if (opts?.canPayCommission !== undefined) {
+    serialized.canPayCommission = opts.canPayCommission;
   }
   return serialized;
 }
@@ -106,6 +129,9 @@ export function serializeStorePayload(
     includeClickCount?: boolean;
     includeEstimatedOwed?: boolean;
     estimatedOwedCents?: number;
+    lifetimeFeesCents?: number;
+    paidCents?: number;
+    canPayCommission?: boolean;
   },
 ): { store: SerializedStore; products: SerializedProduct[] } {
   const filtered = opts?.includeInactive
@@ -121,6 +147,13 @@ export function serializeStorePayload(
     store: serializeStore(store, {
       estimatedOwedCents: opts?.includeEstimatedOwed
         ? (opts.estimatedOwedCents ?? 0)
+        : undefined,
+      lifetimeFeesCents: opts?.includeEstimatedOwed
+        ? (opts.lifetimeFeesCents ?? 0)
+        : undefined,
+      paidCents: opts?.includeEstimatedOwed ? (opts.paidCents ?? 0) : undefined,
+      canPayCommission: opts?.includeEstimatedOwed
+        ? (opts.canPayCommission ?? false)
         : undefined,
     }),
     products: ordered.map((p) =>

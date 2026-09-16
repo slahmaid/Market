@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getStoreCommissionBalance } from "@/lib/commission/balance";
 import { requireSquareStoreOwner } from "@/lib/store/assertSquareStoreOwner";
 import {
   serializeStore,
@@ -50,21 +51,24 @@ export async function GET(req: Request, { params }: Params) {
     void _square;
 
     let estimatedOwedCents = 0;
+    let lifetimeFeesCents = 0;
+    let paidCents = 0;
+    let canPayCommission = false;
     let productsForPayload = products;
 
     if (includeEstimatedOwed) {
-      const [storeAgg, byProduct] = await Promise.all([
-        prisma.productClick.aggregate({
-          where: { storeId: store.id },
-          _sum: { feeCents: true },
-        }),
+      const [balance, byProduct] = await Promise.all([
+        getStoreCommissionBalance(store.id),
         prisma.productClick.groupBy({
           by: ["productId"],
           where: { storeId: store.id },
           _sum: { feeCents: true },
         }),
       ]);
-      estimatedOwedCents = storeAgg._sum.feeCents ?? 0;
+      estimatedOwedCents = balance.unpaidCents;
+      lifetimeFeesCents = balance.lifetimeFeesCents;
+      paidCents = balance.paidCents;
+      canPayCommission = balance.canPayCommission;
       const owedByProduct = new Map(
         byProduct.map((row) => [row.productId, row._sum.feeCents ?? 0]),
       );
@@ -80,6 +84,9 @@ export async function GET(req: Request, { params }: Params) {
         includeClickCount,
         includeEstimatedOwed,
         estimatedOwedCents,
+        lifetimeFeesCents,
+        paidCents,
+        canPayCommission,
       }),
     );
   } catch {

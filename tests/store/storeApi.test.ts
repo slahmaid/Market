@@ -4,12 +4,22 @@ const mockAuth = vi.fn();
 const mockSquareFindUnique = vi.fn();
 const mockStoreFindUnique = vi.fn();
 const mockStoreUpsert = vi.fn();
-const mockClickAggregate = vi.fn();
 const mockClickGroupBy = vi.fn();
+const mockGetBalance = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   auth: () => mockAuth(),
 }));
+
+vi.mock("@/lib/commission/balance", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/commission/balance")
+  >("@/lib/commission/balance");
+  return {
+    ...actual,
+    getStoreCommissionBalance: (...args: unknown[]) => mockGetBalance(...args),
+  };
+});
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -21,7 +31,6 @@ vi.mock("@/lib/db", () => ({
       upsert: (...args: unknown[]) => mockStoreUpsert(...args),
     },
     productClick: {
-      aggregate: (...args: unknown[]) => mockClickAggregate(...args),
       groupBy: (...args: unknown[]) => mockClickGroupBy(...args),
     },
   },
@@ -86,7 +95,7 @@ describe("GET /api/stores/[squareId]", () => {
     expect(body.products[0].clickCount).toBeUndefined();
     expect(body.store.estimatedOwedCents).toBeUndefined();
     expect(body.products[0].estimatedOwedCents).toBeUndefined();
-    expect(mockClickAggregate).not.toHaveBeenCalled();
+    expect(mockGetBalance).not.toHaveBeenCalled();
     expect(mockClickGroupBy).not.toHaveBeenCalled();
   });
 
@@ -108,7 +117,12 @@ describe("GET /api/stores/[squareId]", () => {
         product({ id: "p2", name: "B", active: false, sortOrder: 1 }),
       ],
     });
-    mockClickAggregate.mockResolvedValue({ _sum: { feeCents: 278 } });
+    mockGetBalance.mockResolvedValue({
+      lifetimeFeesCents: 278,
+      paidCents: 228,
+      unpaidCents: 50,
+      canPayCommission: true,
+    });
     mockClickGroupBy.mockResolvedValue([
       { productId: "p1", _sum: { feeCents: 278 } },
     ]);
@@ -124,10 +138,13 @@ describe("GET /api/stores/[squareId]", () => {
     ]);
     expect(body.products[0].clickCount).toBe(3);
     expect(body.products[1].clickCount).toBe(0);
-    expect(body.store.estimatedOwedCents).toBe(278);
+    expect(body.store.estimatedOwedCents).toBe(50);
+    expect(body.store.lifetimeFeesCents).toBe(278);
+    expect(body.store.paidCents).toBe(228);
+    expect(body.store.canPayCommission).toBe(true);
     expect(body.products[0].estimatedOwedCents).toBe(278);
     expect(body.products[1].estimatedOwedCents).toBe(0);
-    expect(mockClickAggregate).toHaveBeenCalled();
+    expect(mockGetBalance).toHaveBeenCalled();
     expect(mockClickGroupBy).toHaveBeenCalled();
   });
 });
