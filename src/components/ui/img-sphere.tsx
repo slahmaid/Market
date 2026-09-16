@@ -23,7 +23,12 @@ export interface SphereImageGridProps {
   momentumDecay?: number;
   maxRotationSpeed?: number;
   baseImageScale?: number;
+  /** Multiplier when pointer hovers a node (default 1.45). */
   hoverScale?: number;
+  /** Multiplier when a node matches focusedImageId (default 1.6). */
+  focusScale?: number;
+  /** Enlarge + face this image id on the sphere. */
+  focusedImageId?: string | null;
   perspective?: number;
   autoRotate?: boolean;
   autoRotateSpeed?: number;
@@ -99,6 +104,13 @@ function rotatePoint(
   return { x, y: y2, z: z2 };
 }
 
+function faceUnitTowardCamera(ux: number, uy: number, uz: number) {
+  const rotY = (Math.atan2(-ux, uz) * 180) / Math.PI;
+  const z1 = Math.hypot(ux, uz) || 1e-6;
+  const rotX = (Math.atan2(uy, z1) * 180) / Math.PI;
+  return { x: normalizeAngle(rotX), y: normalizeAngle(rotY) };
+}
+
 const SphereImageGrid: React.FC<SphereImageGridProps> = ({
   images = [],
   containerSize = 400,
@@ -107,6 +119,9 @@ const SphereImageGrid: React.FC<SphereImageGridProps> = ({
   momentumDecay = 0.94,
   maxRotationSpeed = 5,
   baseImageScale = 0.04,
+  hoverScale = 1.45,
+  focusScale = 1.6,
+  focusedImageId = null,
   autoRotate = true,
   autoRotateSpeed = 0.14,
   className = "",
@@ -122,6 +137,9 @@ const SphereImageGrid: React.FC<SphereImageGridProps> = ({
   onSelectRef.current = onImageSelect;
   const showModalRef = useRef(showModal);
   showModalRef.current = showModal;
+  const focusedIdRef = useRef(focusedImageId);
+  focusedIdRef.current = focusedImageId;
+  const aimedFocusRef = useRef<string | null>(null);
 
   const bitmapsRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const unitRef = useRef<Float32Array>(new Float32Array(0));
@@ -142,6 +160,8 @@ const SphereImageGrid: React.FC<SphereImageGridProps> = ({
     containerSize,
     radius: sphereRadius ?? containerSize * 0.44,
     baseR: Math.max(3, containerSize * baseImageScale * 0.5),
+    hoverScale,
+    focusScale,
     dragSensitivity,
     momentumDecay,
     maxRotationSpeed,
@@ -152,6 +172,8 @@ const SphereImageGrid: React.FC<SphereImageGridProps> = ({
     containerSize,
     radius: sphereRadius ?? containerSize * 0.44,
     baseR: Math.max(3, containerSize * baseImageScale * 0.5),
+    hoverScale,
+    focusScale,
     dragSensitivity,
     momentumDecay,
     maxRotationSpeed,
@@ -299,6 +321,7 @@ const SphereImageGrid: React.FC<SphereImageGridProps> = ({
 
       const cache = bitmapsRef.current;
       const hover = hoverRef.current;
+      const focusId = focusedIdRef.current;
 
       for (let k = 0; k < idx.length; k++) {
         const i = idx[k]!;
@@ -308,9 +331,13 @@ const SphereImageGrid: React.FC<SphereImageGridProps> = ({
         const depth = (z + p.radius) / (2 * p.radius);
         const fade = Math.min(1, Math.max(0.2, depth));
         let r = p.baseR * (0.5 + depth * 0.85);
-        if (i === hover) r *= 1.22;
-
         const img = imagesRef.current[i]!;
+        const isFocused = Boolean(focusId && img.id === focusId);
+        const isHover = i === hover;
+        if (isFocused) r *= p.focusScale;
+        else if (isHover) r *= p.hoverScale;
+        const highlight = isFocused || isHover;
+
         const status = img.description ?? "platform";
         const sx = cx + x;
         const sy = cy + y;
@@ -328,18 +355,18 @@ const SphereImageGrid: React.FC<SphereImageGridProps> = ({
           ctx.restore();
           ctx.beginPath();
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
-          ctx.lineWidth = i === hover ? 2 : 1;
-          ctx.strokeStyle =
-            i === hover ? "rgba(0,122,255,0.95)" : "rgba(255,255,255,0.4)";
+          ctx.lineWidth = highlight ? 2.5 : 1;
+          ctx.strokeStyle = highlight
+            ? "rgba(0,122,255,0.95)"
+            : "rgba(255,255,255,0.4)";
           ctx.stroke();
         } else {
           ctx.fillStyle = STATUS_FILL[status] ?? STATUS_FILL.platform!;
           ctx.fill();
-          ctx.lineWidth = i === hover ? 2 : 1;
-          ctx.strokeStyle =
-            i === hover
-              ? "rgba(0,122,255,0.95)"
-              : (STATUS_STROKE[status] ?? STATUS_STROKE.platform!);
+          ctx.lineWidth = highlight ? 2.5 : 1;
+          ctx.strokeStyle = highlight
+            ? "rgba(0,122,255,0.95)"
+            : (STATUS_STROKE[status] ?? STATUS_STROKE.platform!);
           ctx.stroke();
         }
       }
@@ -354,6 +381,28 @@ const SphereImageGrid: React.FC<SphereImageGridProps> = ({
 
       const conf = propsRef.current;
       const drag = dragRef.current;
+      const focusId = focusedIdRef.current;
+
+      if (focusId && focusId !== aimedFocusRef.current) {
+        const imgs = imagesRef.current;
+        const fi = imgs.findIndex((img) => img.id === focusId);
+        if (fi >= 0) {
+          const u = unitRef.current;
+          if (u.length >= (fi + 1) * 3) {
+            const face = faceUnitTowardCamera(
+              u[fi * 3]!,
+              u[fi * 3 + 1]!,
+              u[fi * 3 + 2]!,
+            );
+            rotRef.current = face;
+            velRef.current = { x: 0, y: 0 };
+            aimedFocusRef.current = focusId;
+          }
+        }
+      } else if (!focusId) {
+        aimedFocusRef.current = null;
+      }
+
       if (!drag?.active) {
         const v = velRef.current;
         v.x *= conf.momentumDecay;
@@ -362,7 +411,8 @@ const SphereImageGrid: React.FC<SphereImageGridProps> = ({
         if (Math.abs(v.y) < 0.002) v.y = 0;
 
         const r = rotRef.current;
-        if (conf.autoRotate) r.y += conf.autoRotateSpeed * dt;
+        // Pause auto-rotate while a list-focused square is highlighted
+        if (conf.autoRotate && !focusId) r.y += conf.autoRotateSpeed * dt;
         r.x = normalizeAngle(r.x + clamp(v.x, conf.maxRotationSpeed) * dt);
         r.y = normalizeAngle(r.y + clamp(v.y, conf.maxRotationSpeed) * dt);
       }

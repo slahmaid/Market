@@ -2,32 +2,21 @@
 
 import { AppChrome } from "@/components/board/AppChrome";
 import { MySquaresList } from "@/components/board/MySquaresList";
+import { PageShell } from "@/components/board/PageShell";
 
 export default function MySquaresClient() {
   return (
-    <main
-      className="min-h-[100dvh] bg-[#f6f7f9]"
-      style={{
-        paddingBottom: "max(2rem, var(--safe-bottom))",
-      }}
-    >
+    <main className="min-h-[100dvh] bg-[#f6f7f9]">
       <AppChrome active="dashboard" />
-      <div
-        className="mx-auto w-full max-w-lg space-y-4 px-4 py-8"
-        style={{
-          paddingTop: "max(2rem, var(--safe-top))",
-        }}
-      >
-        <header className="rounded-2xl bg-white p-6 shadow-sm border border-black/5">
-          <h1 className="text-2xl font-semibold text-neutral-900">
-            My squares
-          </h1>
+      <PageShell maxWidthClassName="max-w-lg" className="space-y-4">
+        <header className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm sm:p-6">
+          <h1 className="text-2xl font-semibold text-neutral-900">My squares</h1>
         </header>
 
-        <section className="rounded-2xl bg-white shadow-sm border border-black/5 overflow-hidden">
+        <section className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
           <MySquaresList />
         </section>
-      </div>
+      </PageShell>
     </main>
   );
 }

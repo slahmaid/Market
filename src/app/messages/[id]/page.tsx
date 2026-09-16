@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { AppChrome } from "@/components/board/AppChrome";
+import { PageShell } from "@/components/board/PageShell";
 import { auth } from "@/lib/auth";
 import { assertConversationAccess } from "@/lib/chat/assertConversationAccess";
 import { prisma } from "@/lib/db";
@@ -37,19 +38,19 @@ export default async function MessageThreadPage({ params }: Props) {
   if (!conversation) notFound();
 
   return (
-    <main className="min-h-screen bg-[#f6f7f9] text-zinc-900">
+    <main className="flex min-h-[100dvh] flex-col bg-[#f6f7f9] text-zinc-900">
       <AppChrome active="messages" />
-      <div className="mx-auto flex max-w-xl flex-col px-4 py-8" style={{ minHeight: "100dvh" }}>
+      <PageShell className="flex min-h-0 flex-1 flex-col">
         <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
           <Link
             href="/messages"
-            className="text-zinc-600 underline-offset-2 hover:underline"
+            className="inline-flex min-h-11 items-center text-zinc-600 underline-offset-2 active:underline touch-manipulation"
           >
             ← Inbox
           </Link>
           <Link
             href={`/store/${conversation.store.squareId}`}
-            className="text-zinc-600 underline-offset-2 hover:underline"
+            className="inline-flex min-h-11 items-center text-zinc-600 underline-offset-2 active:underline touch-manipulation"
           >
             {conversation.store.name}
           </Link>
@@ -71,7 +72,7 @@ export default async function MessageThreadPage({ params }: Props) {
             createdAt: m.createdAt.toISOString(),
           }))}
         />
-      </div>
+      </PageShell>
     </main>
   );
 }

@@ -160,13 +160,13 @@ export default function ThreadClient({
       </ul>
 
       {canCompose ? (
-        <form onSubmit={send} className="flex gap-2">
+        <form onSubmit={send} className="flex gap-2 pr-14 md:pr-0">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             maxLength={2000}
             placeholder="Write a message…"
-            className="min-h-11 flex-1 rounded-xl border border-zinc-300 bg-white px-3 text-sm"
+            className="min-h-11 flex-1 rounded-xl border border-zinc-300 bg-white px-3 text-base sm:text-sm"
             disabled={status === "archived" && role === "buyer"}
           />
           <button
@@ -176,7 +176,7 @@ export default function ThreadClient({
               !draft.trim() ||
               (status === "archived" && role === "buyer")
             }
-            className="min-h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white disabled:opacity-50"
+            className="sm-press min-h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white disabled:opacity-50 touch-manipulation"
           >
             Send
           </button>

@@ -7,27 +7,60 @@ import type { SquareUpdatedPayload } from "./SquareDetailsDropdown";
 
 type BoardDashboardRailProps = {
   onSquareUpdated?: (square: SquareUpdatedPayload) => void;
+  /** Mobile expand state; desktop always shows the body. */
+  open?: boolean;
+  onToggle?: () => void;
 };
 
-export function BoardDashboardRail({ onSquareUpdated }: BoardDashboardRailProps) {
+export function BoardDashboardRail({
+  onSquareUpdated,
+  open = true,
+  onToggle,
+}: BoardDashboardRailProps) {
   const { data: session, status } = useSession();
   const email = session?.user?.email ?? null;
 
   return (
     <aside
       id="board-dashboard"
-      className="sm-glass-strong flex h-full min-w-0 flex-1 basis-0 flex-col rounded-none border-y-0 border-l-0"
+      className="sm-glass-strong flex min-w-0 shrink-0 flex-col rounded-none border-y-0 border-l-0 max-md:border-b max-md:border-black/5 md:h-full md:flex-1 md:basis-0 md:border-b-0"
     >
-      <div className="shrink-0 border-b border-black/5 px-3 py-3 sm:px-4">
-        <h2 className="text-sm font-semibold text-neutral-900">My squares</h2>
-        {email && (
-          <p className="mt-0.5 truncate text-xs text-neutral-500" title={email}>
-            {email}
-          </p>
-        )}
-      </div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls="board-dashboard-body"
+        className="sm-press flex w-full shrink-0 items-center justify-between gap-2 border-b border-black/5 px-3 py-3 text-left touch-manipulation sm:px-4 md:cursor-default md:active:transform-none"
+      >
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-neutral-900">My squares</h2>
+          {email && (
+            <p
+              className="mt-0.5 truncate text-xs text-neutral-500"
+              title={email}
+            >
+              {email}
+            </p>
+          )}
+        </div>
+        <span
+          className={`md:hidden text-neutral-500 transition-transform duration-200 ${
+            open ? "rotate-180" : ""
+          }`}
+          aria-hidden
+        >
+          ▾
+        </span>
+      </button>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div
+        id="board-dashboard-body"
+        className={`min-h-0 overflow-y-auto overscroll-contain md:block md:flex-1 ${
+          open
+            ? "block max-h-[min(40vh,280px)] md:max-h-none"
+            : "hidden"
+        }`}
+      >
         {status === "loading" && (
           <p className="px-3 py-3 text-sm text-neutral-500">Loading…</p>
         )}

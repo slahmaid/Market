@@ -53,10 +53,10 @@ function toSphereImages(squares: BoardSquare[]): ImageData[] {
 
 type BoardSphereProps = {
   squares: BoardSquare[];
-  onSelect?: (id: string) => void;
+  focusedSquareId?: string | null;
 };
 
-export function BoardSphere({ squares, onSelect }: BoardSphereProps) {
+export function BoardSphere({ squares, focusedSquareId = null }: BoardSphereProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(480);
 
@@ -100,10 +100,12 @@ export function BoardSphere({ squares, onSelect }: BoardSphereProps) {
         momentumDecay={0.945}
         maxRotationSpeed={5}
         baseImageScale={0.038}
+        hoverScale={1.45}
+        focusScale={1.6}
+        focusedImageId={focusedSquareId}
         autoRotate
         autoRotateSpeed={0.12}
         showModal={false}
-        onImageSelect={(image) => onSelect?.(image.id)}
       />
     </div>
   );

@@ -5,7 +5,6 @@ import { AppChrome } from "@/components/board/AppChrome";
 import { BoardDashboardRail } from "@/components/board/BoardDashboardRail";
 import { BoardNotificationsRail } from "@/components/board/BoardNotificationsRail";
 import { BoardSphere } from "@/components/board/BoardSphere";
-import { SquarePanel } from "@/components/board/SquarePanel";
 import { listPreviewSquares } from "@/lib/previewBoard";
 import type { BoardSquare } from "@/components/board/BoardCanvas";
 
@@ -28,7 +27,9 @@ async function loadSquares(): Promise<BoardSquare[]> {
 
 function HomePageContent() {
   const [squares, setSquares] = useState<BoardSquare[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusedSquareId, setFocusedSquareId] = useState<string | null>(null);
+  const [mySquaresOpen, setMySquaresOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,16 +75,17 @@ function HomePageContent() {
       }}
     >
       <AppChrome active="board" />
-      <div className="relative flex min-h-0 flex-1">
-        <BoardDashboardRail onSquareUpdated={applySquareUpdate} />
-        <div className="relative min-h-0 min-w-0 flex-[1.4] overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 flex-col md:flex-row">
+        <BoardDashboardRail
+          open={mySquaresOpen}
+          onToggle={() => setMySquaresOpen((v) => !v)}
+          onSquareUpdated={applySquareUpdate}
+        />
+        <div className="relative min-h-[30vh] min-w-0 flex-1 overflow-hidden md:min-h-0 md:flex-[1.4]">
           {squares.length > 0 ? (
             <BoardSphere
               squares={squares}
-              onSelect={(id) => {
-                if (id.startsWith("preview-")) return;
-                setSelectedId(id);
-              }}
+              focusedSquareId={focusedSquareId}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-neutral-400">
@@ -91,15 +93,13 @@ function HomePageContent() {
             </div>
           )}
         </div>
-        <BoardNotificationsRail />
-      </div>
-      {selectedId ? (
-        <SquarePanel
-          squareId={selectedId}
-          onClose={() => setSelectedId(null)}
-          onSquareUpdated={applySquareUpdate}
+        <BoardNotificationsRail
+          open={notificationsOpen}
+          onToggle={() => setNotificationsOpen((v) => !v)}
+          focusedSquareId={focusedSquareId}
+          onFocusSquare={setFocusedSquareId}
         />
-      ) : null}
+      </div>
     </main>
   );
 }

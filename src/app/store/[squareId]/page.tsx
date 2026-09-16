@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppChrome } from "@/components/board/AppChrome";
+import { PageShell } from "@/components/board/PageShell";
 import { prisma } from "@/lib/db";
 import { serializeStorePayload } from "@/lib/store/serializeStore";
 import { MessageStoreButton } from "./message-store-button";
@@ -42,11 +43,13 @@ export default async function PublicStorePage({ params }: Props) {
   );
 
   return (
-    <main className="min-h-screen bg-[#f6f7f9] text-zinc-900">
+    <main className="min-h-[100dvh] bg-[#f6f7f9] text-zinc-900">
       <AppChrome />
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <header className="mb-10 space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight">{store.name}</h1>
+      <PageShell maxWidthClassName="max-w-3xl">
+        <header className="mb-8 space-y-3 sm:mb-10">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            {store.name}
+          </h1>
           <MessageStoreButton squareId={squareId} />
           {store.about ? (
             <p className="max-w-prose text-zinc-700 whitespace-pre-wrap">{store.about}</p>
@@ -138,7 +141,7 @@ export default async function PublicStorePage({ params }: Props) {
                         <a
                           href={`/go/${p.id}`}
                           rel="noopener noreferrer"
-                          className="mt-auto inline-flex min-h-11 items-center justify-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white"
+                          className="sm-press mt-auto inline-flex min-h-11 items-center justify-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white touch-manipulation"
                         >
                           Buy
                         </a>
@@ -150,7 +153,7 @@ export default async function PublicStorePage({ params }: Props) {
             </ul>
           )}
         </section>
-      </div>
+      </PageShell>
     </main>
   );
 }

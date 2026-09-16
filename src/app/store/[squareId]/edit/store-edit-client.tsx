@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AppChrome } from "@/components/board/AppChrome";
+import { PageShell } from "@/components/board/PageShell";
 
 type StoreFields = {
   name: string;
@@ -331,20 +332,20 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f9] text-zinc-900">
+    <main className="min-h-[100dvh] bg-[#f6f7f9] text-zinc-900">
       <AppChrome />
-      <div className="mx-auto max-w-xl px-4 py-8 sm:px-6">
+      <PageShell maxWidthClassName="max-w-xl">
         <div className="mb-6 flex flex-wrap gap-3 text-sm">
           <Link
             href="/dashboard"
-            className="text-zinc-600 underline-offset-2 hover:underline"
+            className="inline-flex min-h-11 items-center text-zinc-600 underline-offset-2 active:underline touch-manipulation"
           >
             My squares
           </Link>
           {hasStore ? (
             <Link
               href={`/store/${squareId}`}
-              className="text-zinc-600 underline-offset-2 hover:underline"
+              className="inline-flex min-h-11 items-center text-zinc-600 underline-offset-2 active:underline touch-manipulation"
             >
               View store
             </Link>
@@ -671,7 +672,7 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
             </section>
           </>
         )}
-      </div>
+      </PageShell>
     </main>
   );
 }

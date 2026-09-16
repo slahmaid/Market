@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AppChrome } from "@/components/board/AppChrome";
+import { PageShell } from "@/components/board/PageShell";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -51,19 +52,19 @@ export default async function MessagesInboxPage() {
   ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
   return (
-    <main className="min-h-screen bg-[#f6f7f9] text-zinc-900">
+    <main className="min-h-[100dvh] bg-[#f6f7f9] text-zinc-900">
       <AppChrome active="messages" />
-      <div className="mx-auto max-w-xl px-4 py-8">
-        <h1 className="text-2xl font-semibold">Messages</h1>
+      <PageShell>
+        <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
         {items.length === 0 ? (
           <p className="mt-6 text-sm text-zinc-600">No conversations yet.</p>
         ) : (
-          <ul className="mt-6 divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white">
+          <ul className="mt-6 divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
             {items.map((item) => (
               <li key={item.id}>
                 <Link
                   href={`/messages/${item.id}`}
-                  className="block px-4 py-3 hover:bg-zinc-50"
+                  className="sm-press block px-4 py-3.5 active:bg-zinc-50 touch-manipulation"
                 >
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="font-medium">{item.title}</p>
@@ -79,7 +80,7 @@ export default async function MessagesInboxPage() {
             ))}
           </ul>
         )}
-      </div>
+      </PageShell>
     </main>
   );
 }
