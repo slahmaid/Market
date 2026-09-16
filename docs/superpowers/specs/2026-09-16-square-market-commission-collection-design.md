@@ -116,7 +116,7 @@ Pending payments **do not** reduce unpaid (only `succeeded` counts).
     - If missing → log, return received.  
     - If already `succeeded` → no-op.  
     - If `session.payment_status` not paid → no-op / leave pending.  
-    - If `session.amount_total !== payment.amountCents` → log; do **not** mark succeeded (optional refund mirroring primary — prefer refund if easy to reuse).  
+    - If `session.amount_total !== payment.amountCents` → log; do **not** mark succeeded; **refund** using the same helper pattern as primary checkout when a PaymentIntent is available.  
     - Else set `status=succeeded`, `succeededAt=now()`.
 
 ### Owner `GET /api/stores/[squareId]?mine=1`
