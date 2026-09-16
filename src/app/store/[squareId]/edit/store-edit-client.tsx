@@ -23,6 +23,7 @@ type ProductRow = {
   sortOrder: number;
   images: { id: string; url: string; sortOrder: number }[];
   clickCount?: number;
+  estimatedOwedCents?: number;
 };
 
 const emptyStore: StoreFields = {
@@ -58,6 +59,7 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   const [hasStore, setHasStore] = useState(false);
+  const [estimatedOwedCents, setEstimatedOwedCents] = useState(0);
 
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -81,6 +83,7 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
         setHasStore(false);
         setFields(emptyStore);
         setProducts([]);
+        setEstimatedOwedCents(0);
         return;
       }
       if (!r.ok) throw new Error("Failed to load store");
@@ -93,10 +96,12 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
           address: string | null;
           hours: string | null;
           websiteUrl: string | null;
+          estimatedOwedCents?: number;
         };
         products: ProductRow[];
       };
       setHasStore(true);
+      setEstimatedOwedCents(body.store.estimatedOwedCents ?? 0);
       setFields({
         name: body.store.name ?? "",
         about: body.store.about ?? "",
@@ -306,6 +311,14 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
           <p className="text-sm text-zinc-600">Loading…</p>
         ) : (
           <>
+            {hasStore ? (
+              <p className="mb-4 text-sm text-zinc-600">
+                Estimated commission owed:{" "}
+                <span className="font-medium text-zinc-900">
+                  {formatUsd(estimatedOwedCents)}
+                </span>
+              </p>
+            ) : null}
             <form onSubmit={onSaveStore} className="space-y-4">
               {(
                 [
@@ -417,6 +430,10 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
                                   {!p.active ? " · hidden" : ""}
                                   {typeof p.clickCount === "number"
                                     ? ` · ${p.clickCount} click${p.clickCount === 1 ? "" : "s"}`
+                                    : ""}
+                                  {typeof p.estimatedOwedCents === "number" &&
+                                  p.estimatedOwedCents > 0
+                                    ? ` · ${formatUsd(p.estimatedOwedCents)} owed`
                                     : ""}
                                 </p>
                               </div>
