@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   SquareDetailsDropdown,
@@ -68,6 +69,7 @@ export function MySquaresList({ compact, onSquareUpdated }: MySquaresListProps) 
   const pad = compact ? "px-3 py-3" : "px-6 py-8";
   const rowPad = compact ? "px-3 py-2.5" : "px-4 py-3";
   const thumb = compact ? "h-11 w-11 rounded-lg" : "h-14 w-14 rounded-xl";
+  const linkPad = compact ? "px-3" : "px-4";
 
   function applyUpdate(updated: SquareUpdatedPayload) {
     setSquares((prev) =>
@@ -100,6 +102,12 @@ export function MySquaresList({ compact, onSquareUpdated }: MySquaresListProps) 
     return (
       <div className={`${pad} space-y-3`}>
         <p className="text-sm text-neutral-600">You don’t own any squares yet.</p>
+        <Link
+          href="/"
+          className="inline-flex text-sm text-neutral-700 underline-offset-2 hover:underline"
+        >
+          Buy a square on the Board
+        </Link>
       </div>
     );
   }
@@ -163,6 +171,24 @@ export function MySquaresList({ compact, onSquareUpdated }: MySquaresListProps) 
                 ▾
               </span>
             </button>
+            <div
+              className={`flex flex-wrap gap-3 pb-2.5 text-sm ${linkPad}`}
+            >
+              <Link
+                href={`/store/${square.id}`}
+                className="text-neutral-700 underline-offset-2 hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                View store
+              </Link>
+              <Link
+                href={`/store/${square.id}/edit`}
+                className="text-neutral-700 underline-offset-2 hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Edit store
+              </Link>
+            </div>
             {open && (
               <div className="sm-fade-in">
                 <SquareDetailsDropdown
