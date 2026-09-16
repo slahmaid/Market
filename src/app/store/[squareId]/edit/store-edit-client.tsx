@@ -60,6 +60,11 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
   const [ok, setOk] = useState(false);
   const [hasStore, setHasStore] = useState(false);
   const [estimatedOwedCents, setEstimatedOwedCents] = useState(0);
+  const [lifetimeFeesCents, setLifetimeFeesCents] = useState(0);
+  const [paidCents, setPaidCents] = useState(0);
+  const [canPayCommission, setCanPayCommission] = useState(false);
+  const [payBusy, setPayBusy] = useState(false);
+  const [commissionNote, setCommissionNote] = useState<string | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -84,6 +89,9 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
         setFields(emptyStore);
         setProducts([]);
         setEstimatedOwedCents(0);
+        setLifetimeFeesCents(0);
+        setPaidCents(0);
+        setCanPayCommission(false);
         return;
       }
       if (!r.ok) throw new Error("Failed to load store");
@@ -97,11 +105,17 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
           hours: string | null;
           websiteUrl: string | null;
           estimatedOwedCents?: number;
+          lifetimeFeesCents?: number;
+          paidCents?: number;
+          canPayCommission?: boolean;
         };
         products: ProductRow[];
       };
       setHasStore(true);
       setEstimatedOwedCents(body.store.estimatedOwedCents ?? 0);
+      setLifetimeFeesCents(body.store.lifetimeFeesCents ?? 0);
+      setPaidCents(body.store.paidCents ?? 0);
+      setCanPayCommission(body.store.canPayCommission ?? false);
       setFields({
         name: body.store.name ?? "",
         about: body.store.about ?? "",
@@ -122,6 +136,39 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const c = sp.get("commission");
+    if (c === "success") {
+      setCommissionNote(
+        "Payment received — balance updates when Stripe confirms.",
+      );
+    } else if (c === "cancel") {
+      setCommissionNote("Checkout canceled.");
+    }
+  }, []);
+
+  async function payCommission() {
+    setPayBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/stores/${squareId}/commission/checkout`,
+        { method: "POST" },
+      );
+      const body = (await res.json().catch(() => null)) as
+        | { url?: string; error?: string }
+        | null;
+      if (!res.ok || !body?.url) {
+        throw new Error(body?.error ?? "Checkout failed");
+      }
+      window.location.href = body.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout failed");
+      setPayBusy(false);
+    }
+  }
 
   async function onSaveStore(e: React.FormEvent) {
     e.preventDefault();
@@ -312,12 +359,33 @@ export default function StoreEditClient({ squareId }: { squareId: string }) {
         ) : (
           <>
             {hasStore ? (
-              <p className="mb-4 text-sm text-zinc-600">
-                Estimated commission owed:{" "}
-                <span className="font-medium text-zinc-900">
-                  {formatUsd(estimatedOwedCents)}
-                </span>
-              </p>
+              <div className="mb-4 space-y-2 text-sm text-zinc-600">
+                {commissionNote ? (
+                  <p className="text-zinc-800">{commissionNote}</p>
+                ) : null}
+                <p>
+                  Estimated commission owed:{" "}
+                  <span className="font-medium text-zinc-900">
+                    {formatUsd(estimatedOwedCents)}
+                  </span>
+                </p>
+                <p className="text-xs text-zinc-500">
+                  Lifetime fees {formatUsd(lifetimeFeesCents)} · Paid{" "}
+                  {formatUsd(paidCents)}
+                </p>
+                {canPayCommission ? (
+                  <button
+                    type="button"
+                    disabled={payBusy}
+                    onClick={() => void payCommission()}
+                    className="min-h-11 rounded-lg bg-zinc-900 px-3 text-white"
+                  >
+                    {payBusy ? "Starting checkout…" : "Pay commission"}
+                  </button>
+                ) : estimatedOwedCents > 0 ? (
+                  <p className="text-xs">Balance too small to pay yet</p>
+                ) : null}
+              </div>
             ) : null}
             <form onSubmit={onSaveStore} className="space-y-4">
               {(
