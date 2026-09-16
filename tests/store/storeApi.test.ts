@@ -4,6 +4,8 @@ const mockAuth = vi.fn();
 const mockSquareFindUnique = vi.fn();
 const mockStoreFindUnique = vi.fn();
 const mockStoreUpsert = vi.fn();
+const mockClickAggregate = vi.fn();
+const mockClickGroupBy = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   auth: () => mockAuth(),
@@ -17,6 +19,10 @@ vi.mock("@/lib/db", () => ({
     store: {
       findUnique: (...args: unknown[]) => mockStoreFindUnique(...args),
       upsert: (...args: unknown[]) => mockStoreUpsert(...args),
+    },
+    productClick: {
+      aggregate: (...args: unknown[]) => mockClickAggregate(...args),
+      groupBy: (...args: unknown[]) => mockClickGroupBy(...args),
     },
   },
 }));
@@ -78,6 +84,10 @@ describe("GET /api/stores/[squareId]", () => {
     expect(res.status).toBe(200);
     expect(body.products.map((p: { id: string }) => p.id)).toEqual(["p1"]);
     expect(body.products[0].clickCount).toBeUndefined();
+    expect(body.store.estimatedOwedCents).toBeUndefined();
+    expect(body.products[0].estimatedOwedCents).toBeUndefined();
+    expect(mockClickAggregate).not.toHaveBeenCalled();
+    expect(mockClickGroupBy).not.toHaveBeenCalled();
   });
 
   it("includes inactive products for owner with mine=1", async () => {
@@ -98,6 +108,10 @@ describe("GET /api/stores/[squareId]", () => {
         product({ id: "p2", name: "B", active: false, sortOrder: 1 }),
       ],
     });
+    mockClickAggregate.mockResolvedValue({ _sum: { feeCents: 278 } });
+    mockClickGroupBy.mockResolvedValue([
+      { productId: "p1", _sum: { feeCents: 278 } },
+    ]);
     const res = await GET(
       new Request("http://localhost/api/stores/sq1?mine=1"),
       { params },
@@ -110,6 +124,11 @@ describe("GET /api/stores/[squareId]", () => {
     ]);
     expect(body.products[0].clickCount).toBe(3);
     expect(body.products[1].clickCount).toBe(0);
+    expect(body.store.estimatedOwedCents).toBe(278);
+    expect(body.products[0].estimatedOwedCents).toBe(278);
+    expect(body.products[1].estimatedOwedCents).toBe(0);
+    expect(mockClickAggregate).toHaveBeenCalled();
+    expect(mockClickGroupBy).toHaveBeenCalled();
   });
 });
 

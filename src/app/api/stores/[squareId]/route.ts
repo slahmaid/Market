@@ -36,21 +36,50 @@ export async function GET(req: Request, { params }: Params) {
 
     let includeInactive = false;
     let includeClickCount = false;
+    let includeEstimatedOwed = false;
     if (mine) {
       const session = await auth();
       if (session?.user?.id && session.user.id === store.square.ownerId) {
         includeInactive = true;
         includeClickCount = true;
+        includeEstimatedOwed = true;
       }
     }
 
     const { square: _square, products, ...storeFields } = store;
     void _square;
 
+    let estimatedOwedCents = 0;
+    let productsForPayload = products;
+
+    if (includeEstimatedOwed) {
+      const [storeAgg, byProduct] = await Promise.all([
+        prisma.productClick.aggregate({
+          where: { storeId: store.id },
+          _sum: { feeCents: true },
+        }),
+        prisma.productClick.groupBy({
+          by: ["productId"],
+          where: { storeId: store.id },
+          _sum: { feeCents: true },
+        }),
+      ]);
+      estimatedOwedCents = storeAgg._sum.feeCents ?? 0;
+      const owedByProduct = new Map(
+        byProduct.map((row) => [row.productId, row._sum.feeCents ?? 0]),
+      );
+      productsForPayload = products.map((p) => ({
+        ...p,
+        estimatedOwedCents: owedByProduct.get(p.id) ?? 0,
+      }));
+    }
+
     return NextResponse.json(
-      serializeStorePayload(storeFields, products, {
+      serializeStorePayload(storeFields, productsForPayload, {
         includeInactive,
         includeClickCount,
+        includeEstimatedOwed,
+        estimatedOwedCents,
       }),
     );
   } catch {

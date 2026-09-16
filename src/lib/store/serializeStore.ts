@@ -14,6 +14,7 @@ export type SerializedProduct = {
   sortOrder: number;
   images: SerializedProductImage[];
   clickCount?: number;
+  estimatedOwedCents?: number;
 };
 
 export type SerializedStore = {
@@ -26,9 +27,10 @@ export type SerializedStore = {
   address: string | null;
   hours: string | null;
   websiteUrl: string | null;
+  estimatedOwedCents?: number;
 };
 
-type StoreRow = SerializedStore;
+type StoreRow = Omit<SerializedStore, "estimatedOwedCents">;
 
 type ProductRow = {
   id: string;
@@ -41,10 +43,14 @@ type ProductRow = {
   images: SerializedProductImage[];
   _count?: { clicks: number };
   clickCount?: number;
+  estimatedOwedCents?: number;
 };
 
-export function serializeStore(store: StoreRow): SerializedStore {
-  return {
+export function serializeStore(
+  store: StoreRow,
+  opts?: { estimatedOwedCents?: number },
+): SerializedStore {
+  const serialized: SerializedStore = {
     id: store.id,
     squareId: store.squareId,
     name: store.name,
@@ -55,11 +61,15 @@ export function serializeStore(store: StoreRow): SerializedStore {
     hours: store.hours,
     websiteUrl: store.websiteUrl,
   };
+  if (opts?.estimatedOwedCents !== undefined) {
+    serialized.estimatedOwedCents = opts.estimatedOwedCents;
+  }
+  return serialized;
 }
 
 export function serializeProduct(
   product: ProductRow,
-  opts?: { includeClickCount?: boolean },
+  opts?: { includeClickCount?: boolean; includeEstimatedOwed?: boolean },
 ): SerializedProduct {
   const images = [...product.images].sort(
     (a, b) => a.sortOrder - b.sortOrder,
@@ -82,13 +92,21 @@ export function serializeProduct(
     serialized.clickCount =
       product.clickCount ?? product._count?.clicks ?? 0;
   }
+  if (opts?.includeEstimatedOwed) {
+    serialized.estimatedOwedCents = product.estimatedOwedCents ?? 0;
+  }
   return serialized;
 }
 
 export function serializeStorePayload(
   store: StoreRow,
   products: ProductRow[],
-  opts?: { includeInactive?: boolean; includeClickCount?: boolean },
+  opts?: {
+    includeInactive?: boolean;
+    includeClickCount?: boolean;
+    includeEstimatedOwed?: boolean;
+    estimatedOwedCents?: number;
+  },
 ): { store: SerializedStore; products: SerializedProduct[] } {
   const filtered = opts?.includeInactive
     ? products
@@ -100,9 +118,16 @@ export function serializeStorePayload(
   });
 
   return {
-    store: serializeStore(store),
+    store: serializeStore(store, {
+      estimatedOwedCents: opts?.includeEstimatedOwed
+        ? (opts.estimatedOwedCents ?? 0)
+        : undefined,
+    }),
     products: ordered.map((p) =>
-      serializeProduct(p, { includeClickCount: opts?.includeClickCount }),
+      serializeProduct(p, {
+        includeClickCount: opts?.includeClickCount,
+        includeEstimatedOwed: opts?.includeEstimatedOwed,
+      }),
     ),
   };
 }
