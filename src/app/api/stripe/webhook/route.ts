@@ -102,6 +102,70 @@ async function handlePrimaryCheckout(
   }
 }
 
+async function refundCommissionIfPossible(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const pi = paymentIntentId(session.payment_intent);
+  if (!pi) return;
+  const existing = await prisma.commissionPayment.findUnique({
+    where: { stripeCheckoutSessionId: session.id },
+  });
+  if (existing?.status === "succeeded") return;
+  try {
+    await stripe.refunds.create(
+      { payment_intent: pi },
+      { idempotencyKey: `commission-refund:${session.id}` },
+    );
+  } catch (error) {
+    console.error("Stripe refund failed for commission checkout", {
+      sessionId: session.id,
+      paymentIntent: pi,
+      error,
+    });
+  }
+}
+
+async function handleCommissionCheckout(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  if (session.payment_status !== "paid") {
+    console.warn("Commission checkout ignored: payment not paid", {
+      sessionId: session.id,
+      paymentStatus: session.payment_status,
+    });
+    return;
+  }
+
+  const payment = await prisma.commissionPayment.findUnique({
+    where: { stripeCheckoutSessionId: session.id },
+  });
+  if (!payment) {
+    console.warn("Commission payment row missing", { sessionId: session.id });
+    return;
+  }
+  if (payment.status === "succeeded") return;
+
+  if (
+    session.amount_total == null ||
+    session.amount_total !== payment.amountCents
+  ) {
+    console.warn("Commission amount mismatch; refunding", {
+      sessionId: session.id,
+      amountTotal: session.amount_total,
+      expected: payment.amountCents,
+    });
+    await refundCommissionIfPossible(stripe, session);
+    return;
+  }
+
+  await prisma.commissionPayment.update({
+    where: { id: payment.id },
+    data: { status: "succeeded", succeededAt: new Date() },
+  });
+}
+
 export async function POST(req: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
@@ -138,6 +202,8 @@ export async function POST(req: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.metadata?.type === "primary") {
       await handlePrimaryCheckout(stripe, session);
+    } else if (session.metadata?.type === "commission") {
+      await handleCommissionCheckout(stripe, session);
     }
   }
 
