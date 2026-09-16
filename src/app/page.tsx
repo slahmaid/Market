@@ -1,12 +1,12 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import type { BoardSquare } from "@/components/board/BoardCanvas";
-import { BoardChrome } from "@/components/board/BoardChrome";
+import { AppChrome } from "@/components/board/AppChrome";
 import { BoardDashboardRail } from "@/components/board/BoardDashboardRail";
 import { BoardNotificationsRail } from "@/components/board/BoardNotificationsRail";
 import { BoardSphere } from "@/components/board/BoardSphere";
 import { listPreviewSquares } from "@/lib/previewBoard";
+import type { BoardSquare } from "@/components/board/BoardCanvas";
 
 async function loadSquares(): Promise<BoardSquare[]> {
   try {
@@ -47,7 +47,7 @@ function HomePageContent() {
           "radial-gradient(120% 80% at 50% -10%, #ffffff 0%, #e8ecf4 45%, #eef1f6 100%)",
       }}
     >
-      <BoardChrome />
+      <AppChrome active="board" />
       <div className="relative flex min-h-0 flex-1">
         <BoardDashboardRail
           onSquareUpdated={(updated) => {
