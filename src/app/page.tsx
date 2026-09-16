@@ -5,6 +5,7 @@ import { AppChrome } from "@/components/board/AppChrome";
 import { BoardDashboardRail } from "@/components/board/BoardDashboardRail";
 import { BoardNotificationsRail } from "@/components/board/BoardNotificationsRail";
 import { BoardSphere } from "@/components/board/BoardSphere";
+import { SquarePanel } from "@/components/board/SquarePanel";
 import { listPreviewSquares } from "@/lib/previewBoard";
 import type { BoardSquare } from "@/components/board/BoardCanvas";
 
@@ -27,6 +28,7 @@ async function loadSquares(): Promise<BoardSquare[]> {
 
 function HomePageContent() {
   const [squares, setSquares] = useState<BoardSquare[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +39,30 @@ function HomePageContent() {
       cancelled = true;
     };
   }, []);
+
+  function applySquareUpdate(updated: {
+    id: string;
+    imageUrl: string | null;
+    linkUrl: string | null;
+    status: string;
+    listPriceCents: number | null;
+  }) {
+    setSquares((prev) =>
+      prev.map((s) => {
+        if (s.id !== updated.id) return s;
+        const base = updated.imageUrl;
+        const imageUrl = base
+          ? `${base}${base.includes("?") ? "&" : "?"}v=${Date.now()}`
+          : null;
+        return {
+          ...s,
+          imageUrl,
+          status: updated.status,
+          listPriceCents: updated.listPriceCents,
+        };
+      }),
+    );
+  }
 
   return (
     <main
@@ -49,28 +75,16 @@ function HomePageContent() {
     >
       <AppChrome active="board" />
       <div className="relative flex min-h-0 flex-1">
-        <BoardDashboardRail
-          onSquareUpdated={(updated) => {
-            setSquares((prev) =>
-              prev.map((s) => {
-                if (s.id !== updated.id) return s;
-                const base = updated.imageUrl;
-                const imageUrl = base
-                  ? `${base}${base.includes("?") ? "&" : "?"}v=${Date.now()}`
-                  : null;
-                return {
-                  ...s,
-                  imageUrl,
-                  status: updated.status,
-                  listPriceCents: updated.listPriceCents,
-                };
-              }),
-            );
-          }}
-        />
+        <BoardDashboardRail onSquareUpdated={applySquareUpdate} />
         <div className="relative min-h-0 min-w-0 flex-[1.4] overflow-hidden">
           {squares.length > 0 ? (
-            <BoardSphere squares={squares} />
+            <BoardSphere
+              squares={squares}
+              onSelect={(id) => {
+                if (id.startsWith("preview-")) return;
+                setSelectedId(id);
+              }}
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-neutral-400">
               Loading squares…
@@ -79,6 +93,13 @@ function HomePageContent() {
         </div>
         <BoardNotificationsRail />
       </div>
+      {selectedId ? (
+        <SquarePanel
+          squareId={selectedId}
+          onClose={() => setSelectedId(null)}
+          onSquareUpdated={applySquareUpdate}
+        />
+      ) : null}
     </main>
   );
 }
