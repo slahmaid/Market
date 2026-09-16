@@ -98,6 +98,7 @@ model Store {
   products   Product[]
   clicks     ProductClick[]
   conversations Conversation[]
+  commissionPayments CommissionPayment[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -132,6 +133,19 @@ model ProductClick {
   feeCents          Int?
 
   @@index([productId])
+  @@index([storeId])
+}
+
+model CommissionPayment {
+  id                      String    @id @default(cuid())
+  storeId                 String
+  store                   Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  amountCents             Int
+  stripeCheckoutSessionId String    @unique
+  status                  String
+  createdAt               DateTime  @default(now())
+  succeededAt             DateTime?
+
   @@index([storeId])
 }
 
